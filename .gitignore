@@ -1,0 +1,55 @@
+# ===== Python =====
+mujoco_sim/.rebot/          # 虚拟环境（ teammate 用 docs/环境搭建指南.md 自建）
+__pycache__/
+*.pyc
+
+# 运行时产物（sim_bridge/test_force 运行时自动生成）
+mujoco_sim/output/*
+!mujoco_sim/output/.gitkeep
+
+# ===== Unity 工程缓存与本机设置（只保持 Assets/ProjectSettings/Packages）=====
+MujocoUnityRenderer/[Ll]ibrary/
+MujocoUnityRenderer/Temp/
+MujocoUnityRenderer/Logs/
+MujocoUnityRenderer/Obj/
+MujocoUnityRenderer/Builds/
+MujocoUnityRenderer/[Bb]uild/
+MujocoUnityRenderer/UserSettings/
+.vs/
+*.csproj
+*.sln
+*.user
+
+# ===== 嵌套的 Seeed 官方仓库克隆（827M，队友按 README 自行 git clone）=====
+reBot-DevArm/
+
+# ===== 网页工程（web/）=====
+web/node_modules/
+web/dist/
+
+# ===== Claude 本机配置 =====
+.claude/settings.local.json
+# Playwright MCP 调试残留（console log/快照/截图；注释必须独占一行，行内注释会让 gitignore 失效）
+.playwright-mcp/
+
+# ===== 系统杂物 =====
+Thumbs.db
+desktop.ini
+
+# ===== 公开仓库前移出的敏感/版权文件（2026-10-22 整理；本地保留，不入库）=====
+# 个人隐私：报名表（全队个人信息）、个人总结、工作日志（全队真名与分工）
+/docs/
+/工作日志.md
+/.vscode/settings.json
+# 第三方版权物料：达妙闭源工具、厂商说明书、设备参数导出
+/tools/DMTool 2.1.8.2.exe
+/tools/DM调试工具参数导出.txt
+/tools/达妙科技-USB转CANFD模块使用说明书V1.0.pdf
+# 主办方/厂商模型物料（SolidWorks 装配 53MB）
+/reBot_DM_model/
+# 团队建模成果（赛前公开有被抄风险）：unitypackage 与 SolidWorks/FBX 资产
+/unitys/
+/MujocoUnityRenderer/Assets/*.fbx
+/MujocoUnityRenderer/Assets/*.fbx.meta
+/MujocoUnityRenderer/Assets/Scenes/prefabs/battery.fbx
+/MujocoUnityRenderer/Assets/Scenes/prefabs/battery.fbx.meta

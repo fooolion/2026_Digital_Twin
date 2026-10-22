@@ -1,0 +1,84 @@
+<!-- ============================================================
+     MuJoCo 入门模板 #1：两连杆机械臂（肩 + 肘）
+     ------------------------------------------------------------
+     这个文件是 MuJoCo 的"模型文件"，学名 MJCF（MuJoCo XML）。
+
+     只要搞懂这一个文件，你就懂了 MuJoCo 的 80% 骨架。
+     它描述了一个"竖直平面(X-Z)里"的 2 关节臂：
+        底座 → 大臂(肩关节) → 小臂(肘关节) → 末端执行器(标记点)
+
+     四个核心标签，记牢：
+       <body>   = 刚体 = 机械臂的"一节"
+       <joint>  = 关节 = 这一节相对父节怎么动（hinge=旋转关节=一个舵机）
+       <geom>   = 形状 = 同时用于"碰撞"和"视觉"
+       <site>   = 标记点 = 程序能读它的世界坐标（用来标"末端在哪"）
+     ============================================================ -->
+
+<mujoco model="two_link_arm">
+
+  <!-- 角度单位用"度 degree"，贴近你说的"舵机转多少度"。
+       注意：MuJoCo 运行时内部永远用"弧度"，所以 Python 里还要换算。 -->
+  <compiler angle="degree"/>
+
+  <!-- 仿真步长 0.002 秒（=500Hz）；重力朝 -Z（地球标准，Z 轴朝上）。 -->
+  <option timestep="0.002" gravity="0 0 -9.81"/>
+
+  <!-- default：给下面所有 joint / geom 设"默认值"，
+       这样不用在每个关节、每个形状上重复写。 -->
+  <default>
+    <joint damping="0.1"/>              <!-- 关节稍微带点阻尼，像摩擦 -->
+    <geom rgba="0.65 0.65 0.7 1"/>      <!-- 默认灰蓝色 -->
+  </default>
+
+  <worldbody>
+    <!-- 地面：一块无限大的平面，放在 z=0，让东西掉下来有地方停（可加可不加） -->
+    <geom name="floor" type="plane" pos="0 0 0" size="1 1 0.05" rgba="0.4 0.42 0.45 1"/>
+
+    <!-- ===== 底座：没有 joint，就是"固定在世界里不动"的一节 ===== -->
+    <body name="base" pos="0 0 0.05">
+      <geom name="base_box" type="box"
+            size="0.05 0.05 0.05" rgba="0.32 0.32 0.36 1"/>
+    </body>
+
+    <!-- ===== 大臂 link1：靠 joint1（肩关节）挂在底座上 =====
+         body 的 pos = "这个刚体的原点（也就是它的关节）相对父 body 的位置" -->
+    <body name="link1" pos="0 0 0.10">
+
+      <!-- hinge = 绕单轴旋转的关节（对应一个舵机）。
+           axis="0 1 0" = 绕 Y 轴转，所以手臂在竖直 X-Z 平面里摆动。
+           range="-150 150" = 角度限位，单位是度（因为上面 compiler 设了 degree）。 -->
+      <joint name="joint1" type="hinge" axis="0 1 0" range="-150 150"/>
+
+      <!-- 大臂形状：胶囊。fromto="x1 y1 z1 x2 y2 z2" 直接写两端点，
+           size 是半径。这里从(0,0,0)伸到(0,0,0.30)，即长 0.3m。 -->
+      <geom name="link1_capsule" type="capsule"
+            fromto="0 0 0  0 0 0.30" size="0.025" rgba="0.9 0.42 0.3 1"/>
+
+      <!-- ===== 小臂 link2：挂在大臂末端(0,0,0.30)，靠 joint2（肘关节）===== -->
+      <body name="link2" pos="0 0 0.30">
+
+        <joint name="joint2" type="hinge" axis="0 1 0" range="-150 150"/>
+
+        <geom name="link2_capsule" type="capsule"
+              fromto="0 0 0  0 0 0.25" size="0.020" rgba="0.3 0.5 0.9 1"/>
+
+        <!-- 末端执行器标记点：放在小臂尖端。
+             程序里读 data.site_xpos 就能拿到"末端在世界坐标里的位置"，
+             这就是正运动学(FK)要算的东西。 -->
+        <site name="end_effector" pos="0 0 0.25" size="0.012" rgba="1 0.9 0.1 1"/>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>
+
+<!-- ============================================================
+     怎么从"2 轴"扩到你们的"6 轴"？原理一样：
+     每加一个关节，就往对应的 body 里塞一段：
+         <body name="linkN" pos="上一段末端坐标">
+           <joint name="jointN" type="hinge" axis="..." range="..."/>
+           <geom .../>
+         </body>
+     只是 axis（旋转轴方向）和 range（限位）要照你们真实臂的每个舵机来填
+     —— 这些参数就藏在 Unity 工程 RobotArmKeyboardController.cs 的
+     JointRuntimeState 里（LocalAxis / MinimumAngle / MaximumAngle）。
+     ============================================================ -->

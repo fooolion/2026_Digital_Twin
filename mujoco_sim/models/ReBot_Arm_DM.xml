@@ -1,0 +1,264 @@
+<!-- ============================================================
+     ReBot Arm B601-DM 的 MuJoCo 模型 (MJCF)
+
+     由官方 URDF (Rebot_Arm_description/DM/urdf/ReBot_Arm_DM.urdf)
+     转换而来，遵循官方 README 的 MuJoCo 复用约定：
+       - 机械臂连杆：用 meshes/collision/ 的整件碰撞网格
+       - 夹爪：用 mujoco_collision/ 的 6 个分段件 + shared/ 的 4 个滑块限位块
+
+     自碰撞方案（机械臂标准做法）：
+       每个连杆分配唯一的 contype 位；conaffinity 排除相邻的父子连杆
+       （它们的网格在关节处重叠），保留非相邻连杆之间的碰撞，
+       这样"肘部撞到本体"这类真碰撞仍能检测到。
+       连杆位编号：0=base 1=link1 ... 6=link6 7=end_link 8=左指 9=右指
+
+     关节驱动：力矩(motor)执行器 + 脚本里的计算力矩控制（mj_inverse 逆动力学，见 rebot_control.py）。
+       真机无位置伺服、能"稳住"靠的是齿轮/电机的摩擦阻尼；模型用 damping/frictionloss 模拟这套摩擦，
+       所以低负载姿态也能靠摩擦悬住、高负载姿态才会掉——与真机一致。加上伺服控制时则能精确追踪到位。
+
+     单位：米、千克、秒；角度用"度"。
+     独立自由度 = 7（6 个臂关节 + 1 个夹爪联动）。
+     ============================================================ -->
+
+<mujoco model="ReBot_Arm_DM">
+
+  <compiler angle="degree" meshdir="../../reBot-DevArm/Rebot_Arm_description/DM/meshes"/>
+
+  <!-- ===== 网格资产：全部用官方 meshes ===== -->
+  <asset>
+    <mesh name="base_link_mesh"    file="collision/base_link.STL"/>
+    <mesh name="link1_mesh"        file="collision/link1.STL"/>
+    <mesh name="link2_mesh"        file="collision/link2.STL"/>
+    <mesh name="link3_mesh"        file="collision/link3.STL"/>
+    <mesh name="link4_mesh"        file="collision/link4.STL"/>
+    <mesh name="link5_mesh"        file="collision/link5.STL"/>
+    <mesh name="link6_mesh"        file="collision/link6.STL"/>
+    <mesh name="gripper_base_mesh" file="collision/gripper_base.stl"/>
+
+    <mesh name="lf_front"      file="mujoco_collision/left_finger_front.stl"/>
+    <mesh name="lf_mid"        file="mujoco_collision/left_finger_mid.stl"/>
+    <mesh name="lf_rear"       file="mujoco_collision/left_finger_rear.stl"/>
+    <mesh name="rf_front"      file="mujoco_collision/right_finger_front.stl"/>
+    <mesh name="rf_mid"        file="mujoco_collision/right_finger_mid.stl"/>
+    <mesh name="rf_rear"       file="mujoco_collision/right_finger_rear.stl"/>
+
+    <mesh name="lf_carriage"   file="shared/colored_left_finger_carriage_grey.stl"/>
+    <mesh name="lf_travelstop" file="shared/colored_left_finger_travel_stop_yellow.stl"/>
+    <mesh name="rf_carriage"   file="shared/colored_right_finger_carriage_grey.stl"/>
+    <mesh name="rf_travelstop" file="shared/colored_right_finger_travel_stop_yellow.stl"/>
+    <!-- 齿条：与小齿轮啮合的齿条（URDF visual；仅视觉，无碰撞） -->
+    <mesh name="lf_rack" file="visual/colored_left_finger_rack_metal.stl"/>
+    <mesh name="rf_rack" file="visual/colored_right_finger_rack_metal.stl"/>
+  </asset>
+
+  <!-- ===== 默认值 + 每连杆碰撞位 (contype/conaffinity) =====
+       全掩码 1023（10 位）；每个类排除父/子相邻连杆的位。
+       conaffinity 数值 = 1023 - 父位 - 子位 -->
+  <default>
+    <geom rgba="0.831 0.847 0.831 1"/>
+    <!-- ===== 关节摩擦（模拟真机齿轮/电机的阻尼 —— 真机无位置伺服、靠摩擦稳住）=====
+         damping      = 粘性阻尼（随速度），单位 N·m·s/rad：越大动得越慢、被重力拉时掉得越"黏"
+         frictionloss = 库仑/静摩擦（恒定反向），单位 N·m：越大越能"抱住"低负载姿态不坠
+         标定方法：真机逐姿态卸力(test 命令, tools/cli_arm_controller.py)看"稳住/会掉"，
+              与该姿态重力负载(--angles 末行)对表夹区间；再用 tools/gravity_drop_sim.py
+              的自由坠落时序对表调 damping（--hold 冻结使能轴 / --series 时序输出）。
+         最终值（2026-09-30 标定 + 10-02/10-04 修正，逐关节见下）：
+              J2 静态∈(0.43,2.18)、坍落行为→(0.7, 0.05)；10-04 按 DM 导出（转子 Damp 1.66e-4
+              ×Gr²40=0.266）damping 提至 0.27；J3<1.03→(0.8, 0.5)，10-02 时序拟合 damping→6.0
+              （≈线缆阻力）；J4<0.42 微掉→(0.4, 0.3)；J1/J5 无负载按同型号电机类比；J6 继承默认。
+              另 10-04 补 J1/J2/J3 armature=0.0314（反射转子惯量）。 -->
+    <joint damping="0.5" frictionloss="1.3"/>
+
+    <!-- 0=base：排除子 link1（位1=2） -->
+    <default class="c0"><geom contype="1" conaffinity="1021"/></default>
+    <!-- 1=link1：排除父 base(1) 和子 link2(4) -->
+    <default class="c1"><geom contype="2" conaffinity="1018"/></default>
+    <!-- 2=link2：排除 link1(2) 和 link3(8) -->
+    <default class="c2"><geom contype="4" conaffinity="1013"/></default>
+    <!-- 3=link3：排除 link2(4) 和 link4(16) -->
+    <default class="c3"><geom contype="8" conaffinity="1003"/></default>
+    <!-- 4=link4：排除 link3(8)、link5(32)，再排除 link6(64)（腕部凸包在伸直姿态下伪接触） -->
+    <default class="c4"><geom contype="16" conaffinity="919"/></default>
+    <!-- 5=link5：排除 link4(16) 和 link6(64) -->
+    <default class="c5"><geom contype="32" conaffinity="943"/></default>
+    <!-- 6=link6：排除 link5(32)、end_link(128)，再排除 link4(16)（同上） -->
+    <default class="c6"><geom contype="64" conaffinity="847"/></default>
+    <!-- 7=end_link：排除 link6(64)、左指(256)、右指(512) -->
+    <default class="c7"><geom contype="128" conaffinity="191"/></default>
+    <!-- 8=左指：排除 end_link(128)，保留与右指(512)的碰撞（闭合时相触是正常的） -->
+    <default class="c8"><geom contype="256" conaffinity="895"/></default>
+    <!-- 9=右指：排除 end_link(128)，保留与左指(256)的碰撞 -->
+    <default class="c9"><geom contype="512" conaffinity="895"/></default>
+  </default>
+
+  <worldbody>
+
+    <!-- 底座（固定，银灰色） -->
+    <body name="base_link">
+      <inertial pos="0 0 0.029841" mass="0.8366"
+                fullinertia="0.00133040 0.00213119 0.00275877 0.00000001 0 0"/>
+      <geom class="c0" type="mesh" mesh="base_link_mesh" rgba="0.878 0.890 0.875 1"/>
+
+      <!-- 连杆1：J1 底座回转，绕 Z（灰色） -->
+      <body name="link1" pos="0 0 0.08465" quat="1 0 0 0">
+        <joint name="joint1" type="hinge" axis="0 0 1" range="-160.43 160.43" limited="true"
+               frictionloss="0.7" armature="0.0314"/>
+        <inertial pos="0.000114 -0.000616 0.023648" mass="0.1613"
+                  fullinertia="0.00025207 0.00015464 0.00023416 0 -0.00002832 0"/>
+        <geom class="c1" type="mesh" mesh="link1_mesh" rgba="0.831 0.847 0.831 1"/>
+
+        <!-- 连杆2（大臂）：J2 肩俯仰（黄色） -->
+        <body name="link2" pos="0.020084 0.031625 0.05555" quat="0.707107 -0.707107 0 0">
+          <joint name="joint2" type="hinge" axis="0 0 -1" range="-180 0" limited="true"
+                 frictionloss="0.7" damping="0.27" armature="0.0314"/>
+          <inertial pos="-0.132256 -0.003062 -0.030831" mass="1.3266"
+                    fullinertia="0.00073374 0.01255987 0.01281387 -0.00000043 0.00000851 0.00000128"/>
+          <geom class="c2" type="mesh" mesh="link2_mesh" rgba="0.73 0.84 0.12 1"/>
+
+          <!-- 连杆3（小臂）：J3 肘（黄色） -->
+          <body name="link3" pos="-0.264 0 0" quat="1 0 0 0">
+            <joint name="joint3" type="hinge" axis="0 0 1" range="-180 0" limited="true"
+                   frictionloss="0.8" damping="6.0" armature="0.0314"/>
+            <inertial pos="0.121040 -0.053621 -0.031014" mass="0.8353"
+                      fullinertia="0.00046807 0.00632695 0.00648221 -0.00003456 -0.00004260 0.00000006"/>
+            <geom class="c3" type="mesh" mesh="link3_mesh" rgba="0.73 0.84 0.12 1"/>
+
+            <!-- 连杆4：J4 腕俯仰（黄色） -->
+            <body name="link4" pos="0.2426 -0.054 -0.001625" quat="1 0 0 0">
+              <joint name="joint4" type="hinge" axis="0 0 1" range="-107.14 90" limited="true"
+                     frictionloss="0.4" damping="0.3" armature="0.0005"/>
+              <inertial pos="0.060820 -0.051171 -0.030300" mass="0.52"
+                        fullinertia="0.00045986 0.00075258 0.00066742 0.00024219 -0.00000672 -0.00000535"/>
+              <geom class="c4" type="mesh" mesh="link4_mesh" rgba="0.73 0.84 0.12 1" contype="0" conaffinity="0"/>
+              <geom class="c4" type="box" pos="0.059 -0.03 -0.03" size="0.059 0.058 0.0334" rgba="0.73 0.84 0.12 0.4" group="3"/>
+
+              <!-- 连杆5：J5 腕滚转（灰色） -->
+              <body name="link5" pos="0.078308 -0.0375 -0.03" quat="0.707107 -0.707107 0 0">
+                <joint name="joint5" type="hinge" axis="0 0 1" range="-90 90" limited="true"
+                       frictionloss="0.4" damping="0.3" armature="0.0005"/>
+                <inertial pos="-0.005028 0 0.038623" mass="0.383"
+                          fullinertia="0.00019772 0.00021737 0.00017191 -0.00000062 -0.00002426 0.00000002"/>
+                <geom class="c5" type="mesh" mesh="link5_mesh" rgba="0.831 0.847 0.831 1" contype="0" conaffinity="0"/>
+                <geom class="c5" type="box" pos="-0.0028 0 0.0355" size="0.035 0.0385 0.0425" rgba="0.831 0.847 0.831 0.4" group="3"/>
+
+                <!-- 连杆6：J6 法兰回转（灰色） -->
+                <body name="link6" pos="0.028008 0 0.04" quat="0.707107 0 0.707107 0">
+                  <joint name="joint6" type="hinge" axis="0 0 1" range="-180 180" limited="true"
+                         armature="0.0005"/>
+                  <inertial pos="0 -0.000101 0.025331" mass="0.3663"
+                            fullinertia="0.00015554 0.00015554 0.00013966 0 0 0"/>
+                  <geom class="c6" type="mesh" mesh="link6_mesh" rgba="0.831 0.847 0.831 1" contype="0" conaffinity="0"/>
+                  <geom class="c6" type="box" pos="0 0 0.0242" size="0.0385 0.0318 0.029" rgba="0.831 0.847 0.831 0.4" group="3"/>
+                  <!-- 机械法兰（腕末端，夹爪座安装面） -->
+                  <site name="flange" pos="0 0 0.15539" size="0.012" rgba="1 0.4 0 1"/>
+
+                  <!-- 夹爪座 end_link（固定，黄色） -->
+                  <body name="end_link" pos="0 0 0.15539" quat="0 0.707107 0 0.707107">
+                    <inertial pos="-0.073765 0 0" mass="0.5"
+                              fullinertia="0.00037354 0.00015830 0.00045353 -0.00000011 0.00000050 0.00000285"/>
+                    <geom class="c7" type="mesh" mesh="gripper_base_mesh" rgba="0.725 0.835 0.118 1" contype="0" conaffinity="0"/>
+                    <geom class="c7" type="box" pos="-0.09 0 0" size="0.0168 0.092 0.0342" rgba="0.725 0.835 0.118 0.4" group="3"/>
+                    <!-- TCP 工具中心点：两指尖垫片接触面中心（实测垫片 x 在 -0.03 到 0 之间，中心取 -0.015m） -->
+                    <site name="tcp" pos="-0.015 0 0" size="0.012" rgba="0 1 0.4 1"/>
+
+                    <!-- 夹爪驱动齿轮（对应实机：中心电机 → 小齿轮 → 与两侧夹爪齿条啮合 → 平动开合）。
+                         齿轮节圆半径 r=0.008m（模数1、16齿，与 MujocoStateReader.cs 的 gearRadius 一致）；
+                         齿条位移 d = r × 齿轮角(rad)。本齿轮只做运动学耦合，视觉在 Unity CAD 里。
+                         行程限位 0~343°（真机实测全开≈343°，10-02；正角=张开为仿真惯例，
+                         与真机负角=张开符号相反，映射时翻转）。 -->
+                    <body name="gripper_gear_link" pos="0 0 0" quat="1 0 0 0">
+                      <joint name="gripper_gear" type="hinge" axis="0 0 1" range="0 343" limited="true"
+                             armature="0.0005"
+                             damping="0.5" frictionloss="0.02"/>
+                      <inertial pos="0 0 0" mass="0.02" diaginertia="0.000001 0.000001 0.000001"/>
+                    </body>
+
+                    <!-- 左指：为齿条，由齿轮经齿轮-齿条啮合驱动沿 +Y 平动，行程 0~0.05m -->
+                    <body name="finger_left_link" pos="0 0 0" quat="1 0 0 0">
+                      <joint name="finger_left" type="slide" axis="0 1 0" range="0 0.05" limited="true"
+                             damping="0.1" frictionloss="0.2"/>
+                      <inertial pos="-0.045 0.012 0" mass="0.03"
+                                diaginertia="0.00002 0.00002 0.00001"/>
+                      <geom class="c8" type="mesh" mesh="lf_front"      rgba="0.067 0.075 0.071 1" contype="0" conaffinity="0"/>
+                      <geom class="c8" type="box" pos="-0.015 0.0063 0" size="0.015 0.0064 0.0105" rgba="0.067 0.075 0.071 0.4" group="3"/>
+                      <geom class="c8" type="mesh" mesh="lf_mid"        rgba="0.067 0.075 0.071 1" contype="0" conaffinity="0"/>
+                      <geom class="c8" type="box" pos="-0.0395 0.0071 0" size="0.0095 0.0071 0.0165" rgba="0.067 0.075 0.071 0.4" group="3"/>
+                      <geom class="c8" type="mesh" mesh="lf_rear"       rgba="0.067 0.075 0.071 1" contype="0" conaffinity="0"/>
+                      <geom class="c8" type="box" pos="-0.0569 0.0157 0" size="0.0079 0.0157 0.0196" rgba="0.067 0.075 0.071 0.4" group="3"/>
+                      <geom class="c8" type="mesh" mesh="lf_carriage"   rgba="0.239 0.278 0.271 1"/>
+                      <geom class="c8" type="mesh" mesh="lf_travelstop" rgba="0.725 0.835 0.118 1"/>
+                      <!-- 齿条（视觉件）：与小齿轮啮合 -->
+                      <geom type="mesh" mesh="lf_rack" rgba="0.831 0.847 0.831 1" contype="0" conaffinity="0"/>
+                    </body>
+
+                    <!-- 右指：为齿条，由齿轮经齿轮-齿条啮合驱动沿 -Y 平动（与左指反向），行程 0~-0.05m -->
+                    <body name="finger_right_link" pos="0 0 0" quat="1 0 0 0">
+                      <joint name="finger_right" type="slide" axis="0 1 0" range="-0.05 0" limited="true"
+                             damping="0.1" frictionloss="0.2"/>
+                      <inertial pos="-0.045 -0.012 0" mass="0.03"
+                                diaginertia="0.00002 0.00002 0.00001"/>
+                      <geom class="c9" type="mesh" mesh="rf_front"      rgba="0.067 0.075 0.071 1" contype="0" conaffinity="0"/>
+                      <geom class="c9" type="box" pos="-0.015 -0.0063 0" size="0.015 0.0064 0.0105" rgba="0.067 0.075 0.071 0.4" group="3"/>
+                      <geom class="c9" type="mesh" mesh="rf_mid"        rgba="0.067 0.075 0.071 1" contype="0" conaffinity="0"/>
+                      <geom class="c9" type="box" pos="-0.0395 -0.0073 0" size="0.0095 0.0073 0.0165" rgba="0.067 0.075 0.071 0.4" group="3"/>
+                      <geom class="c9" type="mesh" mesh="rf_rear"       rgba="0.067 0.075 0.071 1" contype="0" conaffinity="0"/>
+                      <geom class="c9" type="box" pos="-0.0569 -0.0160 0.0001" size="0.0079 0.0157 0.0196" rgba="0.067 0.075 0.071 0.4" group="3"/>
+                      <geom class="c9" type="mesh" mesh="rf_carriage"   rgba="0.239 0.278 0.271 1"/>
+                      <geom class="c9" type="mesh" mesh="rf_travelstop" rgba="0.725 0.835 0.118 1"/>
+                      <!-- 齿条（视觉件）：与小齿轮啮合 -->
+                      <geom type="mesh" mesh="rf_rack" rgba="0.831 0.847 0.831 1" contype="0" conaffinity="0"/>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+
+  <!-- 齿轮-齿条啮合：用"定长腱(fixed tendon)"建模传动。
+       腱长 L = Σ coef·joint，用 limited+极窄 range 把 L 硬钉在 0 附近：
+         -0.008·齿轮 + 1·左指 = 0  → 左指 = 0.008·齿轮
+         +0.008·齿轮 + 1·右指 = 0  → 右指 = -0.008·齿轮
+       即：齿轮转 θ，左右齿条反向平移 r·θ（r=0.008m）。 -->
+  <tendon>
+    <fixed name="gear_rack_left" limited="true" range="-0.0001 0.0001">
+      <joint joint="gripper_gear" coef="-0.008"/>
+      <joint joint="finger_left"  coef="1"/>
+    </fixed>
+    <fixed name="gear_rack_right" limited="true" range="-0.0001 0.0001">
+      <joint joint="gripper_gear" coef="0.008"/>
+      <joint joint="finger_right" coef="1"/>
+    </fixed>
+  </tendon>
+
+  <!-- ===== 执行器：6 臂关节 + 1 夹爪齿轮电机（经齿轮-齿条驱动两指反向平移）=====
+       力矩(motor)：ctrl = 力矩(N·m)；脚本里用 PD+重力补偿 / 计算力矩把它当位置伺服。
+       ctrlrange 是交互窗口的滑块范围（-1 到 +1 映射到此区间）。 -->
+  <actuator>
+    <motor name="motor1" joint="joint1" ctrllimited="true" ctrlrange="-27 27" forcerange="-27 27"/>
+    <motor name="motor2" joint="joint2" ctrllimited="true" ctrlrange="-27 27" forcerange="-27 27"/>
+    <motor name="motor3" joint="joint3" ctrllimited="true" ctrlrange="-27 27" forcerange="-27 27"/>
+    <motor name="motor4" joint="joint4" ctrllimited="true" ctrlrange="-7 7"   forcerange="-7 7"/>
+    <motor name="motor5" joint="joint5" ctrllimited="true" ctrlrange="-7 7"   forcerange="-7 7"/>
+    <motor name="motor6" joint="joint6" ctrllimited="true" ctrlrange="-7 7"   forcerange="-7 7"/>
+    <!-- 齿轮电机：扭矩(N·m)。经齿条 r=0.008m 放大成手指力 F=τ/r，1 N·m → 125 N 指端力 -->
+    <motor name="gripper_gear_motor" joint="gripper_gear" ctrllimited="true" ctrlrange="-0.6 0.6" forcerange="-0.6 0.6"/>
+  </actuator>
+
+</mujoco>
+
+<!-- ============================================================
+     注意事项：
+     - 碰撞网格是 STL 凸包，比真实零件略胖；折叠极限姿态附近，
+       非相邻连杆（如 link2-link4）可能提前接触，属已知近似。做精细
+       碰撞或全行程验证时，可再把连杆也换成分段网格。
+     - 腕部碰撞几何（2026-10-06 重构）：link4/5/6、夹爪座、双指的碰撞
+       为精准 box（group=3，查看器默认隐藏，Rendering 面板可开 Group 3
+       调试显示）；对应 mesh geom 为纯视觉（contype=0）。凸包虚碰的
+       绕行排除段已随精准碰撞撤除。
+     - 两指尖在完全闭合（q=0）时相触是正常现象（对应真实夹爪闭合）。
+     ============================================================ -->

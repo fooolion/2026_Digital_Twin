@@ -1,0 +1,111 @@
+/* ===== 首页（index.html）专属样式：Hero / 痛点 / 流程 / 亮点 / 素材位 / 团队 ===== */
+
+/* --- Hero --- */
+.hero { position: relative; min-height: 100svh; display: flex; align-items: center; justify-content: center; }
+.badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12.5px; color: var(--color-accsoft);
+  padding: 6px 15px; border-radius: 999px;
+  background: rgba(46, 229, 132, 0.08); border: 1px solid rgba(46, 229, 132, 0.25);
+}
+.badge i { width: 6px; height: 6px; border-radius: 50%; background: var(--color-acc); animation: blink 2.4s ease-in-out infinite; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.hero h1 { font-size: clamp(34px, 6.2vw, 68px); font-weight: 700; line-height: 1.14; letter-spacing: .01em; margin: 26px 0 20px; }
+.hero .sub { font-size: clamp(14px, 1.6vw, 17px); color: var(--color-fog); max-width: 620px; margin: 0 auto 34px; line-height: 1.75; }
+.ctas { display: flex; gap: 14px; justify-content: flex-start; flex-wrap: wrap; }
+.stats { display: flex; gap: 12px; justify-content: flex-start; flex-wrap: wrap; margin-top: 54px; }
+.stat { min-width: 128px; padding: 13px 20px; border-radius: 13px; text-align: center; }
+.stat b { display: block; font-size: 20px; color: var(--color-accsoft); font-variant-numeric: tabular-nums; }
+.stat span { font-size: 11.5px; color: var(--color-fog); }
+.scroll-hint { position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%); color: #56637a; font-size: 11.5px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.scroll-hint i { width: 1px; height: 26px; background: linear-gradient(180deg, #56637a, transparent); animation: drip 1.8s ease-in-out infinite; }
+@keyframes drip { from { transform: scaleY(0); transform-origin: top; } to { transform: scaleY(1); } }
+
+/* ===== 通用 section 骨架 ===== */
+.sec { max-width: 1060px; margin: 0 auto; padding: 100px 22px 30px; }
+.sec-title { font-size: clamp(22px, 3vw, 30px); font-weight: 700; text-align: center; margin-bottom: 10px; }
+.sec-kicker { text-align: center; font-size: 12.5px; letter-spacing: .18em; color: var(--color-accsoft); margin-bottom: 12px; }
+.sec-sub { text-align: center; color: var(--color-fog); font-size: 14px; margin-bottom: 48px; line-height: 1.8; }
+
+/* --- 痛点 --- */
+.pain-lead {
+  text-align: center; font-size: clamp(18px, 2.6vw, 26px); font-weight: 700;
+  margin: 40px auto 0; max-width: 640px;
+}
+.pain-lead em { font-style: normal; color: var(--color-accsoft); }
+.pains { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 26px; }
+.pain { padding: 22px 20px; border-radius: 16px; }
+.pain .p-ico { font-size: 24px; margin-bottom: 12px; }
+.pain h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #f3d9c8; }
+.pain p { font-size: 12.5px; color: var(--color-fog); line-height: 1.75; }
+
+/* --- 四环节流程 --- */
+.flow-wrap { position: relative; }
+.flow-line { position: absolute; top: 34px; left: 12%; right: 12%; height: 2px; background: rgba(255,255,255,.08); border-radius: 2px; }
+.flow-line-fill { width: 100%; height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, #59ffb0, #2ee584, #4cc3ff);
+  box-shadow: 0 0 14px rgba(46,229,132,.5); }
+.flow-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.flow-step { text-align: center; padding: 0 6px; }
+.flow-num {
+  width: 44px; height: 44px; margin: 12px auto 14px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15, 20, 30, 0.9); border: 2px solid var(--color-acc);
+  color: var(--color-accsoft); font-weight: 700; font-size: 15px;
+  font-variant-numeric: tabular-nums; position: relative; z-index: 1;
+}
+.flow-step h3 { font-size: 14.5px; font-weight: 600; margin-bottom: 8px; }
+.flow-step p { font-size: 12px; color: var(--color-fog); line-height: 1.7; }
+@media (max-width: 760px) {
+  .flow-line { display: none; }
+  .flow-steps { grid-template-columns: 1fr 1fr; }
+}
+
+/* --- 核心亮点 --- */
+.his { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.hi { padding: 22px 20px; border-radius: 16px; }
+.hi .h-tag {
+  display: inline-block; font-size: 11px; color: var(--color-accsoft);
+  padding: 3px 9px; border-radius: 999px; margin-bottom: 12px;
+  background: rgba(46, 229, 132, 0.10); border: 1px solid rgba(46, 229, 132, 0.25);
+}
+.hi h3 { font-size: 14.5px; font-weight: 600; margin-bottom: 8px; }
+.hi p { font-size: 12.5px; color: var(--color-fog); line-height: 1.7; }
+
+/* --- 素材位 --- */
+.mats { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; max-width: 1000px; margin: 0 auto; }
+.mat-ph {
+  aspect-ratio: 16 / 9; border-radius: 16px; position: relative; overflow: hidden;
+  border: 1.5px dashed rgba(255, 255, 255, 0.16);
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(46, 229, 132, 0.06), transparent 60%),
+    rgba(255, 255, 255, 0.015);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+}
+.mat-ph svg { opacity: .35; }
+.mat-ph b { font-size: 13px; color: #9aa7ba; font-weight: 500; }
+.mat-ph span { font-size: 11px; color: #56637a; }
+
+/* --- 团队 --- */
+.team-sub { text-align: center; font-size: 12.5px; color: var(--color-fog); margin: 0 0 40px; }
+.team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; max-width: 780px; margin: 0 auto 14px; }
+.member { padding: 20px 14px; border-radius: 14px; text-align: center; }
+.avatar {
+  width: 52px; height: 52px; margin: 0 auto 12px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 19px; font-weight: 600; color: #06281a;
+  background: linear-gradient(135deg, #59ffb0, #2ee584);
+}
+.member.advisor .avatar { background: linear-gradient(135deg, #ffd9a8, #ffb454); }
+.member b { display: block; font-size: 14px; margin-bottom: 4px; }
+.member span { font-size: 11.5px; color: var(--color-fog); }
+.team-note { text-align: center; font-size: 12px; color: #56637a; }
+
+/* --- CTA / footer --- */
+.cta-sec { text-align: center; padding: 100px 22px 120px; }
+.cta-sec h2 { font-size: clamp(20px, 3vw, 28px); font-weight: 700; margin-bottom: 26px; }
+footer { border-top: 1px solid rgba(255,255,255,.06); padding: 26px 22px; text-align: center; color: #56637a; font-size: 12px; line-height: 2; }
+
+@media (prefers-reduced-motion: reduce) {
+  .orb, .badge i, .scroll-hint i { animation: none; }
+}

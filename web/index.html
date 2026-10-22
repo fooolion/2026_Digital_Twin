@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232ee584'/%3E%3C/svg%3E" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="基于数字孪生与 VR 沉浸交互的退役动力电池柔性拆解系统——PICO VR 沉浸遥操作 × MuJoCo 物理仿真 × 真机闭环。浏览器内即可体验机械臂仿真。" />
+    <title>报废电池拆解数字孪生集成机器人遥操作系统</title>
+  </head>
+  <body>
+    <header id="site-nav"></header>
+    <div class="ambient" aria-hidden="true">
+      <div class="grid-bg"></div>
+      <div class="orb orb-a"></div>
+      <div class="orb orb-b"></div>
+      <div class="orb orb-c"></div>
+    </div>
+    <main>
+      <!-- ===== Hero ===== -->
+      <section class="hero">
+        <div class="relative z-10 px-6 max-w-[1060px] mx-auto w-full">
+          <span class="badge" data-hero><i></i>浙江大学 · 数字孪生竞赛团队</span>
+          <h1 data-hero>报废电池拆解<br /><span class="grad-text">数字孪生集成机器人</span><br />遥操作系统</h1>
+          <p class="sub" data-hero>人不进高危现场，让机器进去。PICO VR 沉浸遥操作 × MuJoCo 物理仿真 × 真机闭环——一台可以在浏览器里开动的电池拆解工作站。</p>
+          <div class="ctas" data-hero>
+            <a class="btn-solid" href="sim.html">进入仿真工作台 →</a>
+            <a class="btn-ghost" href="live.html">观看实时直播</a>
+          </div>
+          <div class="stats" data-hero>
+            <div class="stat glass"><b>6+1</b><span>自由度 · 含齿条夹爪</span></div>
+            <div class="stat glass"><b>±0.2 mm</b><span>真机重复定位精度</span></div>
+            <div class="stat glass"><b>≤5 ms</b><span>双键急停响应</span></div>
+            <div class="stat glass"><b>mm 级</b><span>TCP 拖拽跟踪误差</span></div>
+          </div>
+        </div>
+        <div class="scroll-hint"><span>下滑了解</span><i></i></div>
+      </section>
+
+      <!-- ===== 痛点：为什么要遥操作 ===== -->
+      <section class="sec" id="pain">
+        <p class="sec-kicker" data-rise>WHY · 为什么是遥操作</p>
+        <h2 class="sec-title" data-rise>拆解退役电池，人不能在场</h2>
+        <p class="sec-sub" data-rise>残余电荷、老化隔膜、不确定的工况——传统人工拆解与二维监控遥操作都走不到终点。</p>
+        <div class="pains" data-stagger>
+          <div class="pain glass"><div class="p-ico">🔥</div><h3>起火爆炸风险</h3><p>退役电池内部残余电荷与老化隔膜，拆解中稍有不慎即触发热失控。</p></div>
+          <div class="pain glass"><div class="p-ico">☣️</div><h3>电解液腐蚀中毒</h3><p>泄漏电解液具强腐蚀性与毒性，直接接触威胁作业人员健康。</p></div>
+          <div class="pain glass"><div class="p-ico">❓</div><h3>工况不确定</h3><p>壳体变形、汇流排卡滞因批次而异，纯自动化产线难以独自应对。</p></div>
+        </div>
+        <p class="pain-lead" data-rise>答案：把人撤出危险区，把<em>感知、判断与操作</em>送进去。</p>
+      </section>
+
+      <!-- ===== 工作原理：四环节闭环 ===== -->
+      <section class="sec" id="flow">
+        <p class="sec-kicker" data-rise>HOW · 工作原理</p>
+        <h2 class="sec-title" data-rise>四环节，虚实闭环</h2>
+        <p class="sec-sub" data-rise>数据上行感知推演，指令下行安全执行——一条不断自我修正的回路。</p>
+        <div class="flow-wrap">
+          <div class="flow-line"><div class="flow-line-fill"></div></div>
+          <div class="flow-steps">
+            <div class="flow-step"><div class="flow-num">01</div><h3>现场感知采集</h3><p>双工业相机识别 ArUco 标签解算位姿，关节角与力矩数据同步上传。</p></div>
+            <div class="flow-step"><div class="flow-num">02</div><h3>数字孪生映射</h3><p>Unity 渲染补全视觉盲区，MuJoCo 同步机械臂动力学，虚实一体。</p></div>
+            <div class="flow-step"><div class="flow-num">03</div><h3>远程人机交互</h3><p>PICO VR 沉浸观察，力矩反馈感知受力，增量消抖抑制手颤。</p></div>
+            <div class="flow-step"><div class="flow-num">04</div><h3>实体执行闭环</h3><p>逆解关节角经安全校验下发真机，过载卡滞即时告警回调。</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 核心亮点 ===== -->
+      <section class="sec" id="highlights">
+        <p class="sec-kicker" data-rise>HIGHLIGHTS · 核心亮点</p>
+        <h2 class="sec-title" data-rise>把"不可能"做成"日常"</h2>
+        <p class="sec-sub" data-rise>每一项都经过真机验证，不是 PPT 技术。</p>
+        <div class="his" data-stagger>
+          <div class="hi glass"><span class="h-tag">视觉</span><h3>首次夹取永久锁存</h3><p>双目 ArUco 解算 + 抓取瞬间锁存位姿，根除标签遮挡导致的跳变。</p></div>
+          <div class="hi glass"><span class="h-tag">安全</span><h3>≤5ms 双键急停</h3><p>开机硬件闭锁 → 长按摇杆解锁 → A+B 急停切断动力，三级防护状态机。</p></div>
+          <div class="hi glass"><span class="h-tag">操控</span><h3>DeltaTracking 消抖</h3><p>手柄增量位移算法，人手微颤被挡在产线之外。</p></div>
+          <div class="hi glass"><span class="h-tag">感知</span><h3>Unity 盲区推演</h3><p>相机视域外的环境由孪生体补全，操作员感知无死角。</p></div>
+          <div class="hi glass"><span class="h-tag">保真</span><h3>真机标定仿真</h3><p>坠落动力学标定 + 反射转子惯量——浏览器里就是同一台臂。</p></div>
+          <div class="hi glass"><span class="h-tag">柔性</span><h3>双模式自动切换</h3><p>正常工况自动预执行，变形卡滞秒切人工遥操作干预。</p></div>
+        </div>
+      </section>
+
+      <!-- ===== 素材位 ===== -->
+      <section class="sec" id="media">
+        <p class="sec-kicker" data-rise>SCENES · 现场一瞥</p>
+        <h2 class="sec-title" data-rise>系统实拍</h2>
+        <p class="sec-sub" data-rise>真机作业与 VR 第一视角实录（素材整理中）。</p>
+        <div class="mats">
+          <div class="mat-ph" data-rise>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M22 9l-6 4 6 4V9z"/></svg>
+            <b>真机拆解作业 · 实拍</b><span>素材待补</span>
+          </div>
+          <div class="mat-ph" data-rise>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <b>VR 第一视角 · 录屏</b><span>素材待补</span>
+          </div>
+          <div class="mat-ph" data-rise>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M7 12h4M8 9v6M16 10h.01M19 13h.01"/></svg>
+            <b>遥操作中控台 · 实拍</b><span>素材待补</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 团队 ===== -->
+      <section class="sec" id="team">
+        <p class="sec-kicker" data-rise>TEAM · 团队</p>
+        <h2 class="sec-title" data-rise>浙江大学 · 机械工程</h2>
+        <p class="team-sub" data-rise>中国大学生工程实践与创新能力大赛 · 虚拟仿真赛道（工程场景数字化）</p>
+        <div class="team-grid" data-stagger>
+          <div class="member advisor glass"><div class="avatar">唐</div><b>唐洁</b><span>指导教师</span></div>
+          <div class="member advisor glass"><div class="avatar">葛</div><b>葛杉</b><span>指导教师</span></div>
+          <div class="member glass"><div class="avatar">罗</div><b>罗悦宸</b><span>队员 · 队长</span></div>
+          <div class="member glass"><div class="avatar">陈</div><b>陈思羽</b><span>队员</span></div>
+          <div class="member glass"><div class="avatar">李</div><b>李郑阳</b><span>队员</span></div>
+          <div class="member glass"><div class="avatar">郑</div><b>郑瑞洋</b><span>队员</span></div>
+        </div>
+        <p class="team-note" data-rise>分工覆盖：真机控制 / Unity 渲染 / MuJoCo 仿真与算法 / XR 遥操作</p>
+      </section>
+
+      <!-- ===== CTA ===== -->
+      <section class="cta-sec" data-rise>
+        <h2>准备好看电池是怎么被拆开的了吗？</h2>
+        <a class="btn-solid" href="sim.html">打开仿真工作台 →</a>
+      </section>
+    </main>
+    <footer>
+      © 2026 报废电池拆解数字孪生集成机器人遥操作系统 · 项目团队 浙江大学 机械工程学院<br />
+      基于 reBot B601-DM · PICO 4 · MuJoCo · Unity 构建
+    </footer>
+    <script type="module" src="/src/home.ts"></script>
+  </body>
+</html>

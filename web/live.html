@@ -10,6 +10,7 @@
     <header id="site-nav"></header>
     <div class="ambient" aria-hidden="true"><div class="grid-bg"></div><div class="orb orb-b"></div></div>
 
+    <h1 class="sr-only">运行监控</h1>
     <main class="monitor">
       <!-- 左：视频流区（主画面 + 双相机小窗） -->
       <section class="mn-left">
@@ -47,6 +48,7 @@
             <span class="estop-ring"></span>
             <span class="estop-core">STOP</span>
           </button>
+          <button type="button" class="estop-reset" id="estop-reset" hidden>复位急停</button>
           <p class="estop-note t-lo">双键急停（A+B）≤5ms 切断动力 · 链路经 P5 桥接下发</p>
         </section>
         <section class="hud-panel mn-card">

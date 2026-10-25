@@ -98,6 +98,12 @@ body {
 }
 a.active .step-no, .step-tab.active .step-no { background: var(--color-hudglow); color: #04121f; box-shadow: 0 0 10px rgba(0, 212, 255, 0.5); }
 
+/* 视觉隐藏但读屏可达（页面主标题用） */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
 /* 文字层级（大屏规范：白字三级透明度） */
 .t-hi { color: rgba(255, 255, 255, 1); }
 .t-mid { color: rgba(255, 255, 255, 0.75); }

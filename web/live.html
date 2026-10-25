@@ -5,27 +5,68 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232ee584'/%3E%3C/svg%3E" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>运行监控 · 报废电池拆解数字孪生</title>
-    <script type="module" src="/src/stub.ts"></script>
   </head>
-  <body data-page="live">
-    <div class="ambient" aria-hidden="true"><div class="grid-bg"></div><div class="orb orb-a"></div><div class="orb orb-c"></div></div>
+  <body>
     <header id="site-nav"></header>
-    <main class="max-w-3xl mx-auto px-6 pt-32 pb-24">
-      <p class="text-[12.5px] tracking-[.14em] text-accsoft mb-3 reveal">工作流 · 第 ④ 步</p>
-      <h1 class="text-3xl font-bold mb-4 reveal">运行监控</h1>
-      <p class="text-fog text-[14px] leading-7 mb-10 reveal">PICO（Unity VR）画面实时大屏 + 双相机画面调取——执行阶段的观察窗口。</p>
-      <div class="glass rounded-2xl p-10 text-center reveal">
-        <div class="text-4xl mb-4">📺</div>
-        <h2 class="text-lg font-semibold mb-2">模块施工中</h2>
-        <p class="text-fog text-[13px] leading-7 mb-6">
-          这里将接入：PICO/Unity VR 画面大屏（先放预录视频，后接 WebRTC/MJPEG）· 双 USB 相机小窗<br/>
-          手柄位姿可视化 · 全屏切换
-        </p>
-        <div class="flex gap-3 justify-center flex-wrap">
-          <a class="btn-ghost" href="index.html">← 返回首页</a>
-          <a class="btn-solid" href="sim.html">先去玩仿真 →</a>
+    <div class="ambient" aria-hidden="true"><div class="grid-bg"></div><div class="orb orb-b"></div></div>
+
+    <main class="monitor">
+      <!-- 左：视频流区（主画面 + 双相机小窗） -->
+      <section class="mn-left">
+        <div class="hud-panel mn-main-video" id="pico-video-box">
+          <div class="mn-video-tag"><span class="lamp lamp-warn"></span>PICO · Unity VR 画面</div>
+          <video id="pico-video" playsinline muted></video>
+          <div class="mn-video-ph" id="pico-ph">
+            <div class="ph-ico">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M22 9l-6 4 6 4V9z"/></svg>
+            </div>
+            <b>预录视频待放入</b>
+            <span>P5 接入 OBS → MediaMTX → WebRTC 实时流</span>
+          </div>
+          <button type="button" class="mn-fs-btn" id="fs-btn" title="全屏">⛶ 全屏</button>
         </div>
-      </div>
+        <div class="mn-cams">
+          <div class="hud-panel mn-cam" id="cam-a-box">
+            <div class="mn-video-tag sm"><span class="lamp lamp-warn"></span>相机 A · 工位全景</div>
+            <img id="cam-a" alt="相机 A 画面占位" />
+            <div class="mn-video-ph sm"><b>画面待接入</b><span>MJPEG · P5</span></div>
+          </div>
+          <div class="hud-panel mn-cam" id="cam-b-box">
+            <div class="mn-video-tag sm"><span class="lamp lamp-warn"></span>相机 B · 特写位</div>
+            <img id="cam-b" alt="相机 B 画面占位" />
+            <div class="mn-video-ph sm"><b>画面待接入</b><span>MJPEG · P5</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 右：急停（视觉最重·独立区） + 系统状态 + 速度档 -->
+      <aside class="mn-right">
+        <section class="hud-panel mn-estop-card">
+          <h2 class="hud-title">急停</h2>
+          <button type="button" class="estop" id="estop-btn" aria-label="急停">
+            <span class="estop-ring"></span>
+            <span class="estop-core">STOP</span>
+          </button>
+          <p class="estop-note t-lo">双键急停（A+B）≤5ms 切断动力 · 链路经 P5 桥接下发</p>
+        </section>
+        <section class="hud-panel mn-card">
+          <h2 class="hud-title">链路状态</h2>
+          <ul class="stat-list" id="mn-stats"></ul>
+        </section>
+        <section class="hud-panel mn-card">
+          <h2 class="hud-title">遥操作速度</h2>
+          <div class="speed-gear" id="speed-gear" role="radiogroup" aria-label="速度档位"></div>
+          <p class="t-lo mn-gear-note">档位经 WebSocket 下发 PC 权威端（P5）</p>
+        </section>
+      </aside>
+
+      <!-- 底部：关节遥测趋势（ECharts；当前演示数据） -->
+      <footer class="hud-panel mn-trend">
+        <h2 class="hud-title">关节遥测 · J1–J6 角度曲线 <span class="t-lo" style="font-weight:400;letter-spacing:0">（演示数据 · P5 接入后为实时流）</span></h2>
+        <div id="trend-chart"></div>
+      </footer>
     </main>
+
+    <script type="module" src="/src/live.ts"></script>
   </body>
 </html>

@@ -85,58 +85,57 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.minDistance = 0.5; controls.maxDistance = 2.4;
 controls.enablePan = false;
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // 灯光：环境 + 两盏方向光（工业视口常见的冷白打光）
 scene.add(new THREE.AmbientLight(0xbfd4ff, 0.55));
 const key = new THREE.DirectionalLight(0xffffff, 1.1); key.position.set(1.5, -2, 2.5); scene.add(key);
 const rim = new THREE.DirectionalLight(0x4da3ff, 0.5); rim.position.set(-2, 1.5, 1); scene.add(rim);
 
-// 程序化轻量臂（示意：底座 + 肩 + 大臂 + 小臂 + 腕 + 双指）
-const MAT_BODY = new THREE.MeshStandardMaterial({ color: 0x9aa7b8, roughness: 0.5, metalness: 0.35 });
-const MAT_JOINT = new THREE.MeshStandardMaterial({ color: 0x2c3a4e, roughness: 0.4, metalness: 0.5 });
-const MAT_ACC = new THREE.MeshStandardMaterial({ color: 0x2ee584, roughness: 0.35, metalness: 0.2, emissive: 0x0a3d22 });
+// ===== 真机模型（官方 URDF + 低模视觉网格）=====
+// 资产链：官方 reBot-DevArm/Rebot_Arm_description/DM 的 URDF + visual 网格
+//   → tools/make_visual_lo.py 减面（21MB→4.4MB，主体件 5000 面/硬件件 1200 面）
+//   → web/public/models/visual_lo/ + ReBot_Arm_DM_preview.urdf（mesh 路径已重写）
+// URDF 本身 Z-up，与视口约定一致，无需根旋转。
 const MAT_FLOOR = new THREE.MeshStandardMaterial({ color: 0x0c1a30, roughness: 0.9, metalness: 0.1, transparent: true, opacity: 0.85 });
-
 const floor = new THREE.Mesh(new THREE.CircleGeometry(0.85, 64), MAT_FLOOR);
-// Z-up 世界：CircleGeometry 默认 XY 平面即水平地面，无需旋转（投放环 bug 的教训）
 floor.position.z = -0.001;
 // 网格地面（大屏质感）；GridHelper 默认建在 XZ 平面（Y-up 惯例），Z-up 下需放平 90°
 const grid = new THREE.GridHelper(1.7, 24, 0x1f4a78, 0x122a44);
 grid.rotation.x = Math.PI / 2;
 scene.add(floor, grid);
 
-// 注：Z-up 世界，竖直圆柱需 rotation.x = π/2（CylinderGeometry 默认轴向 Y）；横向关节圆柱保持默认
-const base = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.105, 0.06, 32), MAT_BODY);
-base.rotation.x = Math.PI / 2; base.position.z = 0.03; scene.add(base);
+type UrdfRobot = { joints: Record<string, { setJointValue(v: number): boolean }> } & THREE.Object3D;
+let robot: UrdfRobot | null = null;
+const loadTag = document.createElement('div');
+loadTag.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;font-size:12px;letter-spacing:.08em;color:rgba(0,212,255,.85)';
+loadTag.textContent = '加载真机模型…';
+host.appendChild(loadTag);
 
-const j1 = new THREE.Group(); j1.position.z = 0.06; scene.add(j1);
-const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.09, 24), MAT_JOINT);
-shoulder.rotation.x = Math.PI / 2; shoulder.position.z = 0.02; j1.add(shoulder);
-
-const j2 = new THREE.Group(); j2.position.z = 0.065; j1.add(j2);
-const upper = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.05, 0.3), MAT_BODY);
-upper.position.z = 0.15; j2.add(upper);
-const elbow = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.075, 24), MAT_JOINT);
-elbow.position.z = 0.3; j2.add(elbow);
-
-const j3 = new THREE.Group(); j3.position.z = 0.3; j2.add(j3);
-const fore = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.04, 0.24), MAT_BODY);
-fore.position.z = 0.12; j3.add(fore);
-const wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.06, 20), MAT_JOINT);
-wrist.position.z = 0.24; j3.add(wrist);
-
-const j4 = new THREE.Group(); j4.position.z = 0.25; j3.add(j4);
-const palm = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.045), MAT_ACC);
-palm.position.z = 0.022; j4.add(palm);
-const fingerL = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.032, 0.085), MAT_BODY);
-fingerL.position.set(0.022, 0, 0.085);
-const fingerR = fingerL.clone(); fingerR.position.x = -0.022;
-j4.add(fingerL, fingerR);
-
-// TCP 指示点（与仿真工作台同语义：绿色目标/位置球）
-const tcpDot = new THREE.Mesh(new THREE.SphereGeometry(0.011, 16, 16), MAT_ACC.clone());
-tcpDot.material.emissiveIntensity = 2.2;
-tcpDot.position.z = 0.135; j4.add(tcpDot);
+void (async () => {
+  const { default: URDFLoader } = await import('urdf-loader');
+  try {
+    const loader = new URDFLoader();
+    const r = await loader.loadAsync(`${import.meta.env.BASE_URL}models/ReBot_Arm_DM_preview.urdf`) as unknown as UrdfRobot;
+    robot = r;
+    loadTag.remove();
+    scene.add(r);
+    (window as unknown as Record<string, unknown>).__cpRobot = r; // 调试句柄（现场检查用）
+    if (reduced) {
+      // 静态展示姿态（与仿真零位一致的伸展）
+      r.joints.joint1.setJointValue(0);
+      r.joints.joint2.setJointValue(-1.0);
+      r.joints.joint3.setJointValue(-0.9);
+      r.joints.joint4.setJointValue(0.5);
+      r.joints.joint5.setJointValue(0);
+      r.joints.joint6.setJointValue(0);
+    }
+  } catch (e) {
+    loadTag.textContent = '模型加载失败（检查网络后刷新）';
+    loadTag.style.color = 'rgba(255,180,84,.9)';
+    console.error(e);
+  }
+})();
 
 function resize(): void {
   const w = host.clientWidth || 1, h = host.clientHeight || 1;
@@ -147,18 +146,18 @@ function resize(): void {
 addEventListener('resize', resize);
 resize();
 
-const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const t0 = performance.now();
 renderer.setAnimationLoop(() => {
-  if (!reduced) {
+  if (!reduced && robot) {
     const t = (performance.now() - t0) / 1000;
-    j1.rotation.z = Math.sin(t * 0.35) * 0.55;                 // 底座回转
-    j2.rotation.x = -0.95 + Math.sin(t * 0.5) * 0.22;          // 大臂俯仰
-    j3.rotation.x = 0.75 + Math.sin(t * 0.5 + 1.1) * 0.2;      // 小臂俯仰
-    j4.rotation.x = 0.2 + Math.sin(t * 0.7 + 2) * 0.12;        // 腕部
-    const grip = 0.5 + Math.sin(t * 0.9) * 0.5;                // 夹爪开合
-    fingerL.position.x = 0.016 + grip * 0.016;
-    fingerR.position.x = -0.016 - grip * 0.016;
+    robot.joints.joint1.setJointValue(Math.sin(t * 0.35) * 0.55);            // 底座回转
+    robot.joints.joint2.setJointValue(-0.95 + Math.sin(t * 0.5) * 0.22);     // 大臂俯仰
+    robot.joints.joint3.setJointValue(0.75 + Math.sin(t * 0.5 + 1.1) * 0.2); // 小臂俯仰
+    robot.joints.joint4.setJointValue(0.2 + Math.sin(t * 0.7 + 2) * 0.12);   // 腕部
+    robot.joints.joint5.setJointValue(Math.sin(t * 0.45 + 0.5) * 0.3);
+    const grip = 0.5 + Math.sin(t * 0.9) * 0.5;                              // 夹爪开合（0~0.02m 行程）
+    robot.joints.finger_left.setJointValue(grip * 0.02);
+    robot.joints.finger_right.setJointValue(grip * 0.02);
   }
   controls.update();
   renderer.render(scene, camera);

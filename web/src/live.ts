@@ -26,7 +26,7 @@ document.getElementById('mn-stats')!.innerHTML = STATS.map((s) => `
 const GEARS = ['1', '2', '3', '4', '5'];
 const gearEl = document.getElementById('speed-gear')!;
 gearEl.innerHTML = GEARS.map((g, i) => `
-  <button type="button" role="radio" class="gear${i === 2 ? ' active' : ''}" data-g="${g}" aria-checked="${i === 2}">${g}</button>`).join('');
+  <button type="button" role="radio" class="gear${i === 2 ? ' active' : ''}" data-g="${g}" aria-checked="${i === 2}" tabindex="${i === 2 ? 0 : -1}">${g}</button>`).join(''); // 初始即 roving：仅 active 一个 tab stop
 function setActiveGear(btn: HTMLElement): void {
   gearEl.querySelectorAll('.gear').forEach((gEl) => {
     const g = gEl as HTMLElement;
@@ -139,15 +139,21 @@ void (async () => {
   });
 
   // 滚动更新：追加 + 窗口滑动（局部 setOption + 快照数组，避免全量重建/引用比较跳过）
-  const timer = window.setInterval(() => {
-    step();
-    chart.setOption({ xAxis: { data: labels.slice() }, series: series.map((s) => ({ data: s.data.slice() })) });
-  }, 200);
+  let timer = 0;
+  const start = (): void => {
+    window.clearInterval(timer);
+    timer = window.setInterval(() => {
+      step();
+      chart.setOption({ xAxis: { data: labels.slice() }, series: series.map((s) => ({ data: s.data.slice() })) });
+    }, 200);
+  };
+  start();
 
   // 容器级监听：纵向滚动条出现压缩视口宽 ~17px 时 window resize 不触发
   new ResizeObserver(() => chart.resize()).observe(chartEl);
-  // 页面隐藏时暂停刷新，回来恢复（省电；真流由 P5 推送不受影响）
+  // 页面隐藏暂停、回来恢复（只清不恢复会让曲线"切走一次就死"）
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) window.clearInterval(timer);
+    else start();
   });
 })();

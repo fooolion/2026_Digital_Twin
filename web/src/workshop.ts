@@ -177,6 +177,8 @@ fileInput.addEventListener('change', async () => {
       toast(`导入失败：${f.name}（${String((err as Error)?.message ?? err).slice(0, 60)}）`);
     }
   }
+  // 本批解析完毕（GLTFLoader resolve 时贴图已读入内存），释放 blob URL
+  for (const url of blobMap.values()) URL.revokeObjectURL(url);
 });
 
 async function parseFile(f: File, blobMap: Map<string, string>): Promise<THREE.Object3D> {
@@ -200,6 +202,7 @@ async function parseFile(f: File, blobMap: Map<string, string>): Promise<THREE.O
         m.material = importMaterial();
       }
     });
+    normalizeUnits(obj);
     return obj;
   }
   if (ext === 'glb' || ext === 'gltf') {
@@ -212,6 +215,7 @@ async function parseFile(f: File, blobMap: Map<string, string>): Promise<THREE.O
     });
     const gltf = await new Promise<{ scene: THREE.Object3D }>((res, rej) =>
       new GLTFLoader(mgr).parse(buf, '', (g) => res(g as unknown as { scene: THREE.Object3D }), rej));
+    normalizeUnits(gltf.scene);
     return gltf.scene;
   }
   throw new Error('不支持的格式（STEP 请先导出 GLB/STL）');

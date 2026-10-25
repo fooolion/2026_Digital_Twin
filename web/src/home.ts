@@ -111,11 +111,12 @@ let robot: UrdfRobot | null = null;
 
 // 演示摆动姿态方程（URDF 限位内；动画循环与自动取景共用）
 function setPose(rob: UrdfRobot, t: number): void {
-  rob.joints.joint1.setJointValue(Math.sin(t * 0.35) * 0.55);
-  rob.joints.joint2.setJointValue(-0.95 + Math.sin(t * 0.5) * 0.22);
-  rob.joints.joint3.setJointValue(-0.9 + Math.sin(t * 0.5 + 1.1) * 0.2);
-  rob.joints.joint4.setJointValue(0.2 + Math.sin(t * 0.7 + 2) * 0.12);
-  rob.joints.joint5.setJointValue(Math.sin(t * 0.45 + 0.5) * 0.3);
+  // 小幅摆动：包络紧凑，臂始终保持在画面中心附近（大幅摆动会漂出取景）
+  rob.joints.joint1.setJointValue(Math.sin(t * 0.35) * 0.28);
+  rob.joints.joint2.setJointValue(-0.95 + Math.sin(t * 0.5) * 0.12);
+  rob.joints.joint3.setJointValue(-0.9 + Math.sin(t * 0.5 + 1.1) * 0.12);
+  rob.joints.joint4.setJointValue(0.2 + Math.sin(t * 0.7 + 2) * 0.08);
+  rob.joints.joint5.setJointValue(Math.sin(t * 0.45 + 0.5) * 0.18);
   const grip = 0.5 + Math.sin(t * 0.9) * 0.5;
   rob.joints.finger_left.setJointValue(grip * 0.02);   // [0, 0.05]
   rob.joints.finger_right.setJointValue(-grip * 0.02); // [-0.05, 0]
@@ -153,54 +154,6 @@ void (async () => {
     loadMask.style.opacity = '0';
     window.setTimeout(() => loadMask.remove(), 550);
     scene.add(r);
-    // 自动取景（两段）：
-    // ① 密采样摆动包络（16 相位并集）定初始 target 与距离；
-    // ② 屏幕投影迭代校正——把包络盒投影到 NDC，修 target 直到投影中心=屏幕中心，
-    //    根治"几何中心≠视觉中心"（URDF 零位折叠态、地台原点都会拉偏视觉）。
-    requestAnimationFrame(() => {
-      const box = new THREE.Box3();
-      const tmp = new THREE.Box3();
-      for (let k = 0; k < 16; k++) {
-        setPose(r, (k / 16) * (Math.PI * 2 / 0.35)); // 覆盖最慢关节的完整周期
-        tmp.setFromObject(r);
-        box.union(tmp);
-      }
-      const center = box.getCenter(new THREE.Vector3());
-      const size = box.getSize(new THREE.Vector3());
-      const radius = size.length() * 0.5;
-      const dist = Math.min(Math.max((radius / Math.sin(THREE.MathUtils.degToRad(camera.fov * 0.5))) * 1.3, 1.15), controls.maxDistance);
-      const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
-      controls.target.copy(center);
-      camera.position.copy(center).addScaledVector(dir, dist);
-      controls.update();
-
-      // ② NDC 迭代校正（2~3 轮收敛）
-      const corners: THREE.Vector3[] = [];
-      for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) corners.push(new THREE.Vector3(x, y, z));
-      const right = new THREE.Vector3();
-      const up = new THREE.Vector3();
-      for (let it = 0; it < 3; it++) {
-        camera.updateMatrixWorld();
-        let sx = 0, sy = 0;
-        for (const c of corners) {
-          const v = c.clone().project(camera);
-          sx += v.x; sy += v.y;
-        }
-        sx /= corners.length; sy /= corners.length;
-        if (Math.abs(sx) < 0.01 && Math.abs(sy) < 0.01) break;
-        const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * dist;
-        right.setFromMatrixColumn(camera.matrixWorld, 0);
-        up.setFromMatrixColumn(camera.matrixWorld, 1);
-        controls.target.addScaledVector(right, -sx * halfH * camera.aspect);
-        controls.target.addScaledVector(up, -sy * halfH);
-        camera.position.copy(controls.target).addScaledVector(dir, dist);
-        controls.update();
-      }
-      // 地台跟随：移到臂包络中心正下方，视觉整体居中
-      const cxy = box.getCenter(new THREE.Vector3());
-      floor.position.set(cxy.x, cxy.y, -0.001);
-      grid.position.set(cxy.x, cxy.y, 0);
-    });
     if (reduced) {
       // 静态展示姿态（与仿真零位一致的伸展）
       r.joints.joint1.setJointValue(0);
@@ -226,9 +179,84 @@ function resize(): void {
 addEventListener('resize', resize);
 resize();
 
+// 自动取景（两段）：① 密采样摆动包络（16 相位并集）定距离，保证摆动全程不出画面；
+// ② NDC 屏幕投影迭代校正，居中目标=展示姿态（t=0）包围盒——包络中心偏向末端扫掠侧，
+//    会让臂身恒定偏一侧，臂身居中才是视觉正确。固定视线方向（方位 30°/仰角 25°）+
+//    up=(0,0,1)+lookAt → 地平面在画面中数学上水平（无 roll）。
+function doFit(r: UrdfRobot): void {
+  const box = new THREE.Box3();
+  const tmp = new THREE.Box3();
+  for (let k = 0; k < 16; k++) {
+    setPose(r, (k / 16) * (Math.PI * 2 / 0.35)); // 覆盖最慢关节的完整周期
+    tmp.setFromObject(r);
+    if (tmp.isEmpty()) return;
+    box.union(tmp);
+  }
+  if (box.isEmpty()) return;
+  const size = box.getSize(new THREE.Vector3());
+  const radius = size.length() * 0.5;
+  if (!Number.isFinite(radius) || radius <= 0) return;
+  const dist = Math.min(Math.max((radius / Math.sin(THREE.MathUtils.degToRad(camera.fov * 0.5))) * 1.3, 1.15), controls.maxDistance);
+  const AZ = THREE.MathUtils.degToRad(30);
+  const EL = THREE.MathUtils.degToRad(25);
+  const dir = new THREE.Vector3(Math.cos(EL) * Math.sin(AZ), -Math.cos(EL) * Math.cos(AZ), Math.sin(EL));
+  const center = box.getCenter(new THREE.Vector3());
+  controls.target.copy(center);
+  camera.position.copy(center).addScaledVector(dir, dist);
+  camera.up.set(0, 0, 1);
+  camera.lookAt(controls.target);
+  controls.update();
+
+  setPose(r, 0);
+  const vbox = new THREE.Box3().setFromObject(r);
+  if (vbox.isEmpty()) return;
+  const corners: THREE.Vector3[] = [];
+  for (const x of [vbox.min.x, vbox.max.x]) for (const y of [vbox.min.y, vbox.max.y]) for (const z of [vbox.min.z, vbox.max.z]) corners.push(new THREE.Vector3(x, y, z));
+  const right = new THREE.Vector3();
+  const up = new THREE.Vector3();
+  for (let it = 0; it < 3; it++) {
+    camera.updateMatrixWorld();
+    let sx = 0, sy = 0;
+    for (const c of corners) {
+      const v = c.clone().project(camera);
+      if (!Number.isFinite(v.x) || !Number.isFinite(v.y)) return;
+      sx += v.x; sy += v.y;
+    }
+    sx /= corners.length; sy /= corners.length;
+    if (Math.abs(sx) < 0.01 && Math.abs(sy) < 0.01) break;
+    const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * dist;
+    right.setFromMatrixColumn(camera.matrixWorld, 0);
+    up.setFromMatrixColumn(camera.matrixWorld, 1);
+    // 符号：target/相机沿 +right(+up) 平移 → 画面内容左移(下移)——投影偏右(sx>0)时正需要左移
+    controls.target.addScaledVector(right, sx * halfH * camera.aspect);
+    controls.target.addScaledVector(up, sy * halfH);
+    camera.position.copy(controls.target).addScaledVector(dir, dist);
+    camera.lookAt(controls.target);
+    controls.update();
+  }
+  // 地台跟随：移到臂身（展示姿态）中心正下方
+  const cxy = vbox.getCenter(new THREE.Vector3());
+  floor.position.set(cxy.x, cxy.y, -0.001);
+  grid.position.set(cxy.x, cxy.y, 0);
+}
+
 const t0 = performance.now();
+let fitted = false;
+const countMeshes = (root: THREE.Object3D): number => {
+  let n = 0;
+  root.traverse((o) => { if ((o as THREE.Mesh).isMesh && (o as THREE.Mesh).geometry?.attributes?.position) n++; });
+  return n;
+};
 renderer.setAnimationLoop(() => {
-  if (!reduced && robot) setPose(robot, (performance.now() - t0) / 1000);
+  if (robot) {
+    if (!reduced) setPose(robot, (performance.now() - t0) / 1000);
+    // fit 必须等全部网格就位：loadAsync 在骨架建好时即 resolve，网格异步继续到，
+    // 提前量包围盒会得到空盒（NDC 投影 NaN、相机飞走）——每帧检查，齐了执行一次
+    if (!fitted && countMeshes(robot) >= 30) {
+      fitted = true;
+      doFit(robot);
+    }
+  }
   controls.update();
   renderer.render(scene, camera);
 });

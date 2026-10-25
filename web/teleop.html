@@ -5,27 +5,84 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232ee584'/%3E%3C/svg%3E" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>遥操作 · 报废电池拆解数字孪生</title>
-    <script type="module" src="/src/stub.ts"></script>
   </head>
-  <body data-page="teleop">
-    <div class="ambient" aria-hidden="true"><div class="grid-bg"></div><div class="orb orb-a"></div><div class="orb orb-c"></div></div>
+  <body>
     <header id="site-nav"></header>
-    <main class="max-w-3xl mx-auto px-6 pt-32 pb-24">
-      <p class="text-[12.5px] tracking-[.14em] text-accsoft mb-3 reveal">工作流 · 第 ③ 步</p>
-      <h1 class="text-3xl font-bold mb-4 reveal">遥操作</h1>
-      <p class="text-fog text-[14px] leading-7 mb-10 reveal">完整还原 PICO 端操作界面：左下/右下手柄实时显示，鼠标与键盘操作一一映射。</p>
-      <div class="glass rounded-2xl p-10 text-center reveal">
-        <div class="text-4xl mb-4">🎮</div>
-        <h2 class="text-lg font-semibold mb-2">模块施工中</h2>
-        <p class="text-fog text-[13px] leading-7 mb-6">
-          这里将接入：手柄 6-DoF 姿态可视化 · 键鼠→手柄指令映射 · 经 WebSocket 直通 PC 权威端<br/>
-          长按右摇杆使能 · A+B 急停 · 左摇杆漫游
-        </p>
-        <div class="flex gap-3 justify-center flex-wrap">
-          <a class="btn-ghost" href="index.html">← 返回首页</a>
-          <a class="btn-solid" href="sim.html">先去玩仿真 →</a>
+    <div class="ambient" aria-hidden="true"><div class="grid-bg"></div><div class="orb orb-b"></div></div>
+
+    <h1 class="sr-only">遥操作</h1>
+    <main class="teleop">
+      <!-- 左：安全联锁（三级防护状态机） + 链路 -->
+      <aside class="tp-left">
+        <section class="hud-panel tp-card tp-lock-card" id="lock-card">
+          <h2 class="hud-title">安全联锁</h2>
+          <div class="lock-state" id="lock-state">
+            <span class="lamp lamp-alarm" id="lock-lamp"></span>
+            <b id="lock-name">LOCKED · 闭锁</b>
+          </div>
+          <p class="t-lo" id="lock-desc">上电默认闭锁，禁止一切下行指令</p>
+          <button type="button" class="tp-hold-btn" id="hold-btn">
+            <span class="hold-fill" id="hold-fill"></span>
+            <span class="hold-label">长按 1.0s 解锁</span>
+          </button>
+          <button type="button" class="tp-estop-btn" id="tp-estop" hidden>急 停（A+B）</button>
+        </section>
+        <section class="hud-panel tp-card">
+          <h2 class="hud-title">链路状态</h2>
+          <ul class="stat-list" id="tp-stats"></ul>
+        </section>
+      </aside>
+
+      <!-- 中：VR 视口模拟（手柄浮于左下/右下，键鼠实时驱动） -->
+      <section class="hud-panel tp-view">
+        <div class="vp-tag">VR 视口镜像 · 键鼠操作实时映射到 PICO 手柄</div>
+        <div class="tp-vr-hint">
+          <b>PICO 端操作界面 · 等价镜像</b>
+          <span>下方的手柄即你在 PICO 里握着的手柄——用键鼠操作，状态实时同步显示</span>
         </div>
-      </div>
+        <div class="tp-pad tp-pad-l" id="pad-l" aria-label="左手柄">
+          <div class="pad-name">L · 漫游</div>
+          <svg viewBox="0 0 120 210" class="pad-svg">
+            <ellipse cx="60" cy="52" rx="46" ry="46" class="p-ring"/>
+            <circle cx="60" cy="52" r="30" class="p-head"/>
+            <circle cx="60" cy="52" r="17" class="p-stickbase"/>
+            <circle cx="60" cy="52" r="7.5" class="p-thumb" id="l-thumb"/>
+            <circle cx="89" cy="32" r="7" class="p-btn p-x" id="l-x"/><text x="89" y="35.5" class="p-btntxt">X</text>
+            <circle cx="31" cy="32" r="7" class="p-btn p-a" id="l-a"/><text x="31" y="35.5" class="p-btntxt">A</text>
+            <rect x="46" y="94" width="28" height="78" rx="13" class="p-handle"/>
+            <circle cx="60" cy="122" r="6" class="p-grip" id="l-grip"/>
+          </svg>
+          <div class="pad-io" id="l-io">—</div>
+        </div>
+        <div class="tp-pad tp-pad-r" id="pad-r" aria-label="右手柄">
+          <div class="pad-name">R · 操作</div>
+          <svg viewBox="0 0 120 210" class="pad-svg">
+            <ellipse cx="60" cy="52" rx="46" ry="46" class="p-ring"/>
+            <circle cx="60" cy="52" r="30" class="p-head"/>
+            <circle cx="60" cy="52" r="17" class="p-stickbase"/>
+            <circle cx="60" cy="52" r="7.5" class="p-thumb" id="r-thumb"/>
+            <circle cx="89" cy="32" r="7" class="p-btn p-b" id="r-b"/><text x="89" y="35.5" class="p-btntxt">B</text>
+            <circle cx="31" cy="32" r="7" class="p-btn p-y" id="r-y"/><text x="31" y="35.5" class="p-btntxt">Y</text>
+            <rect x="46" y="94" width="28" height="78" rx="13" class="p-handle"/>
+            <circle cx="60" cy="122" r="6" class="p-grip" id="r-grip"/>
+          </svg>
+          <div class="pad-io" id="r-io">—</div>
+        </div>
+      </section>
+
+      <!-- 右：映射表 + 事件日志 -->
+      <aside class="tp-right">
+        <section class="hud-panel tp-card">
+          <h2 class="hud-title">键鼠映射</h2>
+          <table class="tp-map" id="tp-map"></table>
+        </section>
+        <section class="hud-panel tp-card tp-log-card">
+          <h2 class="hud-title">事件日志</h2>
+          <ul class="tp-log" id="tp-log"></ul>
+        </section>
+      </aside>
     </main>
+
+    <script type="module" src="/src/teleop.ts"></script>
   </body>
 </html>

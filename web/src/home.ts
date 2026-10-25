@@ -49,18 +49,26 @@ mountNav('home');
 
 renderStatList(document.getElementById('stat-list')!, SYSTEM);
 
-// 双模探测（P5-A）：本机伴生服务在线 → 实时模式（该项转绿）；否则保持演示模式占位
-void (async () => {
+// 双模探测（P5-A）：本机伴生服务在线 → 实时模式（该项转绿）；否则保持演示模式占位。
+// m3：页面常开时服务可能后启动——周期重探（结果变化才重渲染），教师"先开页后启服务"流程也能转绿。
+let lastProbeOk: boolean | null = null;
+async function probeOnce(): Promise<void> {
   const h = await probeCompanion();
   const idx = SYSTEM.findIndex((s) => s.probe === 'companion');
   if (idx < 0) return;
-  if (h?.ok) {
-    SYSTEM[idx] = { ...SYSTEM[idx], lamp: 'ok', state: `在线 · 桥 ${h.bridge_clients} 客户端` };
+  const ok = !!h?.ok;
+  if (ok === lastProbeOk && lastProbeOk !== null) return; // 结果未变不重渲染
+  lastProbeOk = ok;
+  if (ok) {
+    SYSTEM[idx] = { ...SYSTEM[idx], lamp: 'ok', state: `在线 · 桥 ${h!.bridge_clients} 客户端` };
   } else {
     SYSTEM[idx] = { ...SYSTEM[idx], lamp: 'warn', state: '未启动（演示模式）' };
   }
   renderStatList(document.getElementById('stat-list')!, SYSTEM);
-})();
+}
+void probeOnce();
+window.setInterval(() => void probeOnce(), 10_000);
+addEventListener('online', () => void probeOnce());
 
 document.getElementById('scene-list')!.innerHTML = SCENE.map((s) => `
   <li><b>${s.name}</b><span class="val">${s.value}</span></li>`).join('');

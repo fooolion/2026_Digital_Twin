@@ -36,9 +36,12 @@ from fastapi.staticfiles import StaticFiles
 HOST, PORT = "0.0.0.0", 8800
 DIST = Path(__file__).resolve().parent.parent / "dist"
 
-app = FastAPI(title="伴生服务 · 报废电池拆解数字孪生", version="0.1.0")
+app = FastAPI(title="伴生服务 · 报废电池拆解数字孪生", version="0.1.0", docs_url=None, redoc_url=None, openapi_url=None)
 # CORS：dev 模式下前端跑在 5173，探测/连接 8800 为跨源——本机演示服务放开无风险
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+_T0 = time.time()
 
 
 @app.get("/api/health")
@@ -53,9 +56,6 @@ async def health() -> dict:
     }
 
 
-_T0 = time.time()
-
-
 class Hub:
     """WS 桥：成员管理 + 最新状态缓存 + 广播。单进程内存态（骨架级，够用）。"""
 
@@ -65,33 +65,41 @@ class Hub:
         self._lock = asyncio.Lock()
 
     async def broadcast(self, message: dict, exclude: WebSocket | None = None) -> None:
-        dead = []
-        for ws in list(self.members):
-            if ws is exclude:
-                continue
+        # 逐客户端带超时并发发送：慢/死客户端不拖累广播循环（裸 await 会被一个卡住的
+        # TCP 连接串行化整条广播——P5-E 接实时流后高频率下发会放大这个问题）
+        async def _send(ws: WebSocket) -> None:
             try:
-                await ws.send_json(message)
-            except Exception:  # noqa: BLE001 - 发送失败视为掉线，收尾清理
-                dead.append(ws)
-        for ws in dead:
-            await self.leave(ws)
+                await asyncio.wait_for(ws.send_json(message), timeout=3)
+            except Exception:  # noqa: BLE001 - 超时/断开视为掉线
+                await self.leave(ws)
+                try:
+                    await asyncio.wait_for(ws.close(), 1)  # m5：不发 close 帧，对端会误以为仍在线
+                except Exception:  # noqa: BLE001
+                    pass
+        await asyncio.gather(*(_send(ws) for ws in list(self.members) if ws is not exclude))
 
     async def join(self, ws: WebSocket, role: str) -> None:
         async with self._lock:
             self.members[ws] = {"role": role, "joined_ts": time.time()}
         await ws.send_json({"type": "welcome", "role": role, "clients": len(self.members)})
-        if self.latest is not None:
-            await ws.send_json(self.latest)  # 新客户端补发最近状态
+        if self.latest is not None and time.time() - self.latest.get("ts", 0) < 600:
+            await ws.send_json(self.latest)  # 补发最近状态（>10 分钟视为过期，不发）
 
     async def leave(self, ws: WebSocket) -> None:
         async with self._lock:
             self.members.pop(ws, None)
 
     async def handle(self, ws: WebSocket, raw: str) -> None:
+        if len(raw) > 262_144:  # m4：256KB 上限（uvicorn 单帧默认 16MB，防 latest 缓存/广播放大）
+            await ws.send_json({"type": "error", "detail": "payload too large"})
+            return
         try:
             msg = json.loads(raw)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, RecursionError):
             await ws.send_json({"type": "error", "detail": "invalid json"})
+            return
+        if not isinstance(msg, dict):  # m1：'[1]'/'"x"'/'5' 合法 JSON 但非对象，.get 会 AttributeError
+            await ws.send_json({"type": "error", "detail": "not an object"})
             return
         mtype = msg.get("type")
         if mtype in ("input", "telemetry"):
@@ -108,18 +116,44 @@ class Hub:
 _HUB = Hub()
 
 
+def _LAN_IP() -> str | None:
+    """本机局域网地址（Origin 校验用：从本机任一网卡地址集合判定）。"""
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))  # 不发包，仅取路由源地址
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except OSError:
+        return None
+
+
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket) -> None:
+    # m2：WS 不受 CORS 中间件管辖——跨站网页可发起 ws://127.0.0.1:8800 注入。
+    # Origin 校验：为空（同源 fetch/非浏览器客户端）或主机属于本机（127.0.0.1/localhost/局域网 IP）才放行。
+    origin = ws.headers.get("origin", "")
+    if origin:
+        from urllib.parse import urlparse
+        if urlparse(origin).hostname not in ("127.0.0.1", "localhost", _LAN_IP()):
+            await ws.close(code=4003)
+            return
     await ws.accept()
     role = "web"
     try:
-        # 首条消息应为 hello（带 role）；超时未说 hello 按默认 web 处理
+        # 首条消息应为 hello（带 role 白名单）；超时未说 hello 按默认 web 处理
         try:
             first = json.loads(await asyncio.wait_for(ws.receive_text(), timeout=5))
+            if not isinstance(first, dict):
+                first = {}
             if first.get("type") == "hello":
                 role = str(first.get("role") or "web")
         except (asyncio.TimeoutError, ValueError):
             pass
+        if role not in ("web", "pc"):  # role 白名单（P5-D 前防自报冒充权威端）
+            await ws.close(code=4002)
+            return
         await _HUB.join(ws, role)
         while True:
             raw = await ws.receive_text()

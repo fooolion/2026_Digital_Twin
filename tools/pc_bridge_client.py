@@ -22,6 +22,8 @@ import time
 import websockets
 
 WS_URL = "ws://127.0.0.1:8800/ws"
+INPUT_WATCHDOG_S = 0.2   # >200ms 无 input → 下发零指令/停机（真机语义：失联即停）
+RECONNECT_MAX_S = 8.0    # 指数退避重连上限
 
 
 async def main() -> None:
@@ -35,41 +37,90 @@ async def main() -> None:
     n_input = 0
     t0 = time.time()
     last_report = t0
+    last_input_ts = time.time()  # 看门狗基准
+    stale_warned = False
+    session = 0
 
-    async with websockets.connect(args.url) as ws:
-        await ws.send(json.dumps({"type": "hello", "role": "pc", "token": args.token}))
-        welcome = json.loads(await ws.recv())
-        if welcome.get("type") != "welcome":
-            print("连接被拒：", welcome)
-            return
-        print(f"[pc-bridge] 已连桥（clients={welcome.get('clients')}）——等待 input…")
+    # 发现 7：schema 校验 + clamp（权威端最后一道闸——server 不校验 payload，真机前必须拦）
+    def clamp_input(payload):
+        if not isinstance(payload, dict):
+            return None
+        out = {}
+        for k in ("lStick", "rStick"):
+            v = payload.get(k)
+            if not isinstance(v, dict) or "x" not in v or "y" not in v:
+                return None
+            try:
+                out[k] = {"x": max(-1.0, min(1.0, float(v["x"]))), "y": max(-1.0, min(1.0, float(v["y"])))}
+            except (TypeError, ValueError):
+                return None
+        for k in ("lGrip", "lX", "lY", "rA", "rB"):
+            out[k] = bool(payload.get(k))
+        out["armed"] = bool(payload.get("armed"))
+        out["estop"] = bool(payload.get("estop"))
+        out["seq"] = payload.get("seq")
+        return out
 
-        async def telemetry_loop():
-            if args.no_telemetry:
-                return
-            while True:
-                await ws.send(json.dumps({"type": "telemetry", "payload": {
-                    "j": [round(20 * ((time.time() * 0.5 + i * 0.3) % 2 - 1), 2) for i in range(6)],
-                }}))
-                await asyncio.sleep(0.2)  # 5Hz 模拟遥测
-
-        tele_task = asyncio.create_task(telemetry_loop())
+    while True:  # 发现 3：断开自动重连（指数退避 1s→2s→4s…上限 8s）
+        session += 1
         try:
-            async for raw in ws:
-                msg = json.loads(raw)
-                if msg.get("type") == "state" and msg.get("src") == "input":
-                    n_input += 1
-                    if not args.quiet:
-                        p = msg.get("payload", {})
-                        print(f"input  lStick=({p.get('lStick', {}).get('x', 0):.1f},{p.get('lStick', {}).get('y', 0):.1f})"
-                              f" rStick=({p.get('rStick', {}).get('x', 0):.1f},{p.get('rStick', {}).get('y', 0):.1f})"
-                              f" grip={p.get('lGrip')} A={p.get('rA')} B={p.get('rB')}")
-                now = time.time()
-                if now - last_report >= 5:
-                    print(f"[统计] {n_input} 条 input，{n_input / (now - t0):.1f} Hz 平均")
-                    last_report = now
-        finally:
-            tele_task.cancel()
+            async with websockets.connect(args.url) as ws:
+                await ws.send(json.dumps({"type": "hello", "role": "pc", "token": args.token}))
+                welcome = json.loads(await ws.recv())
+                if welcome.get("type") != "welcome":
+                    print("连接被拒：", welcome)
+                    return
+                print(f"[pc-bridge] 会话#{session} 已连桥（clients={welcome.get('clients')}）——等待 input…")
+
+                async def telemetry_loop():
+                    if args.no_telemetry:
+                        return
+                    while True:
+                        await ws.send(json.dumps({"type": "telemetry", "payload": {
+                            "j": [round(20 * ((time.time() * 0.5 + i * 0.3) % 2 - 1), 2) for i in range(6)],
+                        }}))
+                        await asyncio.sleep(0.2)  # 5Hz 模拟遥测
+
+                tele_task = asyncio.create_task(telemetry_loop())
+                try:
+                    async for raw in ws:
+                        msg = json.loads(raw)
+                        if msg.get("type") == "state" and msg.get("src") == "input":
+                            n_input += 1
+                            last_input_ts = time.time()
+                            payload = clamp_input(msg.get("payload", {}))
+                            if payload is None:
+                                print("[!] input schema 异常，已丢弃")
+                                continue
+                            # ↓↓↓ 真机接入点：clamp 后的 payload 转发 UDP 9003 ↓↓↓
+                            if not args.quiet and payload.get("armed"):
+                                ls, rs = payload["lStick"], payload["rStick"]
+                                tag = "[E-STOP] " if payload["estop"] else ("" if payload["armed"] else "[终结帧] ")
+                                print(f"input  L=({ls['x']:.1f},{ls['y']:.1f}) R=({rs['x']:.1f},{rs['y']:.1f})"
+                                      f" grip={payload['lGrip']} A={payload['rA']} B={payload['rB']} {tag}")
+                        now = time.time()
+                        # 发现 3：输入看门狗——>200ms 无 input 视为失联，下发零指令（真机语义：失联即停）
+                        if now - last_input_ts > INPUT_WATCHDOG_S and not stale_warned:
+                            print(f"[看门狗] >{INPUT_WATCHDOG_S}s 无 input → 下发零指令/停机（真机接入点）")
+                            stale_warned = True
+                        if now - last_input_ts <= INPUT_WATCHDOG_S:
+                            stale_warned = False
+                        if now - last_report >= 5:
+                            print(f"[统计] {n_input} 条 input，{n_input / (now - t0):.1f} Hz 平均")
+                            last_report = now
+                except websockets.exceptions.ConnectionClosed as e:
+                    print(f"[pc-bridge] 会话#{session} 桥关闭 code={e.code}")
+                finally:
+                    tele_task.cancel()
+                    try:
+                        await tele_task
+                    except asyncio.CancelledError:
+                        pass
+        except OSError as e:
+            print(f"[pc-bridge] 会话#{session} 连接失败：{e}")
+        backoff = min(2 ** session, RECONNECT_MAX_S)
+        print(f"[pc-bridge] {backoff:.0f}s 后重连…")
+        await asyncio.sleep(backoff)
 
 
 if __name__ == "__main__":

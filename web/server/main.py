@@ -82,11 +82,15 @@ async def health() -> dict:
 
 
 class Hub:
-    """WS 桥：成员管理 + 最新状态缓存 + 广播。单进程内存态（骨架级，够用）。"""
+    """WS 桥：成员管理 + 最新状态缓存 + 广播。单进程内存态（骨架级，够用）。
+    操作员互斥（P5-D 复查发现 5）：同一时刻仅一个客户端可下发 input——
+    首个 armed=true 的 input 占坑（记 ws），闭锁帧（armed=false）或断开释放；
+    他人占坑时后来的 input 被拒（error: operator busy）。"""
 
     def __init__(self) -> None:
         self.members: dict[WebSocket, dict] = {}  # ws -> {role, joined_ts}
         self.latest: dict | None = None           # 最近一次 state 消息
+        self.operator: WebSocket | None = None    # 当前 ARMED 发送源（互斥槽）
         self._lock = asyncio.Lock()
 
     async def broadcast(self, message: dict, exclude: WebSocket | None = None) -> None:
@@ -113,6 +117,8 @@ class Hub:
     async def leave(self, ws: WebSocket) -> None:
         async with self._lock:
             self.members.pop(ws, None)
+            if self.operator is ws:
+                self.operator = None  # 断开释放操作员槽
 
     async def handle(self, ws: WebSocket, raw: str) -> None:
         if len(raw) > 262_144:  # m4：256KB 上限（uvicorn 单帧默认 16MB，防 latest 缓存/广播放大）
@@ -128,8 +134,19 @@ class Hub:
             return
         mtype = msg.get("type")
         if mtype in ("input", "telemetry"):
+            payload = msg.get("payload")
+            if mtype == "input":
+                # 操作员互斥：armed=true 占坑/续用；armed=false 释放；他人占坑时拒绝
+                armed = bool(payload.get("armed")) if isinstance(payload, dict) else False
+                if armed and self.operator not in (None, ws):
+                    await ws.send_json({"type": "error", "detail": "operator busy"})
+                    return
+                if armed:
+                    self.operator = ws
+                elif self.operator is ws:
+                    self.operator = None
             # 桥核心语义：input/telemetry 即时广播给其他端，并缓存为最新 state
-            state = {"type": "state", "src": mtype, "payload": msg.get("payload"), "ts": time.time()}
+            state = {"type": "state", "src": mtype, "payload": payload, "ts": time.time()}
             self.latest = state
             await self.broadcast(state, exclude=ws)
         elif mtype == "ping":

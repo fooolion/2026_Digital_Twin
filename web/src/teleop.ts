@@ -130,18 +130,36 @@ view.addEventListener('pointerup', (e) => {
 view.addEventListener('pointercancel', () => { input.rA = false; input.rB = false; });
 view.addEventListener('contextmenu', (e) => e.preventDefault()); // 右键是 B 键，别弹菜单
 
-/* ===== P5-D：伴生服务桥——input 下行（ARMED 才发，30Hz 节流；LOCKED/ESTOP 不发） ===== */
+/* ===== P5-D：伴生服务桥——input 下行 =====
+ * 协议（对齐 UDP 9003 演进）：payload = { seq, armed, estop, lStick, rStick, lGrip, lX, lY, rA, rB }
+ *   - armed=true：正常遥操流（ARMED 态 30Hz，零输入也发=心跳）；armed=false + 全零：终结帧（切出 ARMED 时发）
+ *   - estop=true：急停通告帧（E-STOP 触发瞬间发一帧）
+ *   - 下游（pc/真机）规则：以 armed/estop 标志为主、心跳超时（>200ms 无帧）为兜底——
+ *     "断流=停止"不可依赖（TCP 断开可能延迟感知），必须显式标志。
+ * 发送时机：ARMED 态 30Hz 节流；LOCKED/ESTOP 不发常规流（但状态切换瞬间发终结帧/急停帧）。 */
 let bridgeWs: WebSocket | null = null;
 let lastSendTs = 0;
+let downSeq = 0;
 const SEND_HZ = 30;
+
+function sendDownlinkFrame(armed: boolean, estop: boolean): void {
+  if (!bridgeWs || bridgeWs.readyState !== WebSocket.OPEN) return;
+  downSeq += 1;
+  const zero = { x: 0, y: 0 };
+  const body = armed ? input : { lStick: zero, rStick: zero, lGrip: false, lX: false, lY: false, rA: false, rB: false };
+  bridgeWs.send(JSON.stringify({
+    type: 'input',
+    payload: { seq: downSeq, armed, estop, ...body },
+  }));
+}
 
 function sendInputDownlink(): void {
   if (!bridgeWs || bridgeWs.readyState !== WebSocket.OPEN) return;
-  if (lock !== 'ARMED') return; // 闭锁/急停态绝不下发——状态机是下行总闸
+  if (lock !== 'ARMED') return; // 闭锁/急停态不发常规流（状态机是下行总闸）
   const now = performance.now();
   if (now - lastSendTs < 1000 / SEND_HZ) return;
   lastSendTs = now;
-  bridgeWs.send(JSON.stringify({ type: 'input', payload: { ...input } }));
+  sendDownlinkFrame(true, false);
 }
 
 function bridgeStat(lamp: 'ok' | 'warn' | 'off', state: string): void {
@@ -160,7 +178,15 @@ void (async () => {
   }
   bridgeWs = connectBridge(
     () => { /* 页面暂不消费上行 state（P5-E 监控页消费） */ },
-    (reason) => bridgeStat('off', `已断开（${reason}）`),
+    (reason) => {
+      bridgeStat('off', `已断开（${reason}）`);
+      // 发现 4：链路断开即自动闭锁（fail-safe）——操作员不能对着死链继续"遥操"
+      if (lock === 'ARMED') {
+        setLock('LOCKED');
+        logEvent(`链路断开（${reason}）→ 自动闭锁`);
+        toast('链路断开 · 已自动闭锁');
+      }
+    },
   );
   if (bridgeWs) bridgeStat('ok', '已连接 · ARMED 时 30Hz 下行');
 })();
@@ -177,7 +203,13 @@ const holdFill = document.getElementById('hold-fill') as HTMLElement;
 const estopBtn = document.getElementById('tp-estop') as HTMLElement;
 
 function setLock(s: LockState): void {
+  const prev = lock;
   lock = s;
+  // 发现 2：切出 ARMED 必须发终结帧——线上最后一帧是陈旧非零帧时，
+  // "保持最后指令"语义的下游（真机链路常见默认）会带伤继续运动
+  if (prev === 'ARMED' && s !== 'ARMED') {
+    sendDownlinkFrame(false, s === 'ESTOP'); // armed=false 全零帧；E-STOP 另带 estop 标志
+  }
   // 灯色语义：LOCKED=琥珀（未就绪警示）；ESTOP=红闪（最高警示等级，红钮本身恒红）
   const conf: Record<LockState, [string, string, string, string]> = {
     LOCKED: ['lamp-warn', 'LOCKED · 闭锁', '上电默认闭锁，禁止一切下行指令', 'rgba(255,180,84,.4)'],

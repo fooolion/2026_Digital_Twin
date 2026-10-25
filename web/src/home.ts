@@ -153,13 +153,15 @@ void (async () => {
     loadMask.style.opacity = '0';
     window.setTimeout(() => loadMask.remove(), 550);
     scene.add(r);
-    // 自动取景：按摆动包络取景——采样动画方程 4 个相位取并集包围盒，
-    // 使任意动画相位下臂都大致居中（URDF 零位是折叠态，不能按零位量）
+    // 自动取景（两段）：
+    // ① 密采样摆动包络（16 相位并集）定初始 target 与距离；
+    // ② 屏幕投影迭代校正——把包络盒投影到 NDC，修 target 直到投影中心=屏幕中心，
+    //    根治"几何中心≠视觉中心"（URDF 零位折叠态、地台原点都会拉偏视觉）。
     requestAnimationFrame(() => {
       const box = new THREE.Box3();
       const tmp = new THREE.Box3();
-      for (const tk of [0, 1.6, 3.1, 4.7]) {
-        setPose(r, tk);
+      for (let k = 0; k < 16; k++) {
+        setPose(r, (k / 16) * (Math.PI * 2 / 0.35)); // 覆盖最慢关节的完整周期
         tmp.setFromObject(r);
         box.union(tmp);
       }
@@ -171,6 +173,33 @@ void (async () => {
       controls.target.copy(center);
       camera.position.copy(center).addScaledVector(dir, dist);
       controls.update();
+
+      // ② NDC 迭代校正（2~3 轮收敛）
+      const corners: THREE.Vector3[] = [];
+      for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) corners.push(new THREE.Vector3(x, y, z));
+      const right = new THREE.Vector3();
+      const up = new THREE.Vector3();
+      for (let it = 0; it < 3; it++) {
+        camera.updateMatrixWorld();
+        let sx = 0, sy = 0;
+        for (const c of corners) {
+          const v = c.clone().project(camera);
+          sx += v.x; sy += v.y;
+        }
+        sx /= corners.length; sy /= corners.length;
+        if (Math.abs(sx) < 0.01 && Math.abs(sy) < 0.01) break;
+        const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * dist;
+        right.setFromMatrixColumn(camera.matrixWorld, 0);
+        up.setFromMatrixColumn(camera.matrixWorld, 1);
+        controls.target.addScaledVector(right, -sx * halfH * camera.aspect);
+        controls.target.addScaledVector(up, -sy * halfH);
+        camera.position.copy(controls.target).addScaledVector(dir, dist);
+        controls.update();
+      }
+      // 地台跟随：移到臂包络中心正下方，视觉整体居中
+      const cxy = box.getCenter(new THREE.Vector3());
+      floor.position.set(cxy.x, cxy.y, -0.001);
+      grid.position.set(cxy.x, cxy.y, 0);
     });
     if (reduced) {
       // 静态展示姿态（与仿真零位一致的伸展）

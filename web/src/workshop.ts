@@ -1,7 +1,8 @@
 /**
- * 零件库（R5，2026-10-25）：老师工作流第①步——导入电池零件。
- * 本地文件解析（不上传）：STL / GLB / GLTF / OBJ → three.js 预览 + 列表管理。
- * 「投放到仿真工作台」为预留接口：场景尺寸定稿后接通 sim 场景放置位。
+ * 零件库（老师工作流第①步：导入电池零件）。
+ * 布局：左零件列表/导入卡/应用卡 + 右 three.js 预览（自转、居中落地、自适应取景）。
+ * 导入：STL/GLB/GLTF/OBJ 本地解析不上传；毫米单位自动识别；「投放仿真」为预留接口。
+ * Rev: R5 · 2026-10-25
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -11,7 +12,7 @@ import './parts.css';
 
 mountNav('workshop');
 
-/* ================= 零件数据 ================= */
+/* ===== 零件数据 ===== */
 
 interface Part {
   id: string;
@@ -24,7 +25,7 @@ interface Part {
 const parts: Part[] = [];
 let selectedId: string | null = null;
 
-/* ================= 预览视口 ================= */
+/* ===== 预览视口 ===== */
 
 const host = document.getElementById('part-3d')!;
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -92,7 +93,7 @@ function preview(obj: THREE.Object3D): void {
   controls.update();
 }
 
-/* ================= 内置零件 ================= */
+/* ===== 内置零件 ===== */
 
 // 构建一次模板，build() 只 clone（与导入件同模式，反复选中不泄漏 GPU 资源）
 const builtinTemplate = (() => {
@@ -105,7 +106,7 @@ const builtinTemplate = (() => {
 })();
 parts.push({ id: 'builtin-cube', name: '占位电池样件', fmt: 'BUILT-IN', tris: 12, build: () => builtinTemplate.clone(true) });
 
-/* ================= 列表渲染 ================= */
+/* ===== 列表渲染 ===== */
 
 const listEl = document.getElementById('part-list')!;
 const metaEl = document.getElementById('part-meta')!;
@@ -144,7 +145,7 @@ listEl.addEventListener('keydown', (e) => {
   if (li && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(li.dataset.id!); }
 });
 
-/* ================= 本地导入（STL/GLB/GLTF/OBJ） ================= */
+/* ===== 本地导入（STL/GLB/GLTF/OBJ） ===== */
 
 const fileInput = document.getElementById('import-file') as HTMLInputElement;
 document.getElementById('import-btn')!.addEventListener('click', () => fileInput.click());
@@ -248,7 +249,7 @@ function countTris(obj: THREE.Object3D): number {
   return Math.round(n);
 }
 
-/* ================= 预留：投放到仿真场景 ================= */
+/* ===== 预留：投放到仿真场景 ===== */
 
 document.getElementById('apply-btn')!.addEventListener('click', () => {
   const sel = parts.find((p) => p.id === selectedId);
@@ -256,6 +257,6 @@ document.getElementById('apply-btn')!.addEventListener('click', () => {
   toast(`已记录「${sel.name}」待投放 · 仿真场景放置位随场景定稿开放（挂账 P4-场景融合）`);
 });
 
-/* ================= 初始 ================= */
+/* ===== 初始 ===== */
 
 select('builtin-cube');

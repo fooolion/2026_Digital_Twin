@@ -1,19 +1,7 @@
 /**
- * 一键夹取演示（P4）：关节空间轨迹播放器 + TCP 路径录制/回放。
- *
- * 演示架构（"更底层的路径控制"）：不用"每帧追 TCP 目标"的伺服通路（逐帧 IK+限位
- * 回滚会产生卡顿），而是——
- *   1. start() 时把八个航点（展开→接近→下探→抬升→升起→搬运→投放→回位）逐个用
- *      ik.solveTo 离线解成关节角（链式播种，自然连续；全程约束夹爪轴竖直朝下）；
- *   2. tick() 按段做 smoothstep 关节插值，直接写 targetQ（CTC 精确跟踪，运动平滑）；
- *   3. 抓取 = 物理 TCP 收敛到下探点（settle）后闭合夹爪 + 捕获样件相对夹爪的位姿并
- *      进入"运动学跟随"（样件每帧严格随夹爪）；投放 = 收敛到投放点后张开夹爪释放
- *      跟随，样件自然掉落桌面。插值到位≠物理到位，settle 等待防"隔空抓取"。
- * 每轮演示前 resetCube 把样件放回出生点，保证可重复。
- *
- * 路径录制/回放：拖球时 90ms 采样 ikTarget（伺服通路）；回放走与演示相同的**关节空间
- * 轨迹播放**——startReplay 时把 TCP 路径离线解成关节角序列，tick 按 Catmull-Rom 插值
- * 直接写 jointTarget（不经逐帧 IK——伺服回滚+CTC 滞后是原回放卡顿的来源）。
+ * 任务控制器：一键夹取演示（关节空间轨迹播放器 + 运动学跟随抓取）
+ *           + 路径录制回放（Catmull-Rom 关节插值 + 引导段）。
+ * Rev: P4 · 2026-10-22
  */
 import * as THREE from 'three';
 import type { TcpIk } from './tcp-ik';
@@ -122,7 +110,7 @@ export function createDemo(deps: DemoDeps) {
 
   /** 离线解一个航点：接触关键航点带竖直下压轴约束（网格直搜），过渡航点纯位置（链式播种） */
   function solveWaypoint(seed: Float64Array, p: readonly [number, number, number], axis?: boolean): Float64Array {
-    return ik.solveTo(seed, p, axis ? GRASP_AXIS : undefined) ?? seed.slice();
+    return ik.solveTo(seed, p, axis ? GRASP_AXIS : undefined);
   }
 
   /** 生成整段演示计划（8 航点 → 8 段关节插值） */
@@ -317,11 +305,10 @@ export function createDemo(deps: DemoDeps) {
     let seed: Float64Array = new Float64Array(seed0);
     for (const wp of path) {
       const q = ik.solveTo(seed, [wp.x, wp.y, wp.z]);
-      if (!q) break;
       jPath.push({ q, t: wp.t });
       seed = new Float64Array(q);
     }
-    if (jPath.length < 3) throw new Error('路径求解失败');
+    if (jPath.length < 3) throw new Error('路径求解失败'); // 防御断言：path≥2 时不可达
     replay = true;
     replayT = jPath[0].t; // 从引导段起播
   }
@@ -333,7 +320,6 @@ export function createDemo(deps: DemoDeps) {
   return {
     start, stop,
     get running() { return running; },
-    get done() { return done; },
     get label() { return running ? segs[segIdx]?.label ?? '' : (done ? '完成' : '待命'); },
     get jointTarget() { return jointTarget; },
     tick,
@@ -345,7 +331,6 @@ export function createDemo(deps: DemoDeps) {
     clearPath,
     startReplay, stopReplay,
     get replayRunning() { return replay; },
-    get canReplay() { return path.length >= 2; },
     get dropPoint() { return dropPos; },
   };
 }

@@ -1,22 +1,17 @@
 /**
- * 遥操作页（R6，2026-10-25）：老师工作流第③步——PICO 遥操设定的网页镜像。
- *
- * 职责：把键鼠操作实时映射为 PICO 手柄状态并可视化（左/右手柄 SVG 驱动），
- * 叠加三级防护状态机（LOCKED → 长按解锁 → ARMED ⇄ E-STOP）。
- * 当前为纯前端镜像（无下行链路）；P5 伴生服务接入后，输入状态经 WebSocket 直通 PC 权威端。
- *
- * 键鼠映射（数据驱动，改 MAPPINGS 即全站生效；PICO 4 真机布局：左 X/Y 右 A/B）：
- *   左手柄（漫游）：WASD/方向键→摇杆，Shift→握持，Q→X，空格/E→Y
- *   右手柄（操作）：鼠标位移→摇杆（视口相对），左键→A、右键→B（A+B 同按=双键急停）
- *   长按「解锁」按钮 1s = 解锁使能（LOCKED→ARMED；ESTOP 态为复位）
+ * 遥操作页（老师工作流第③步：PICO 遥操的网页镜像）。
+ * 布局：左安全联锁（三级防护状态机）+ 中 VR 视口（左右手柄 SVG 键鼠实时驱动）+ 右映射表/事件日志。
+ * 状态机：LOCKED →(长按1s)→ ARMED →(A+B双键)→ E-STOP →(长按)→ ARMED；ARMED 可点按回 LOCKED。
+ * P5 接入点：input 状态对象即 WebSocket 下行 payload。
+ * Rev: R6 · 2026-10-25
  */
-import { mountNav, toast } from './nav';
+import { mountNav, toast, renderStatList, type StatItem } from './nav';
 import './theme.css';
 import './teleop.css';
 
 mountNav('teleop');
 
-/* ================= 数据驱动配置 ================= */
+/* ===== 数据驱动配置 ===== */
 
 const MAPPINGS: { key: string; pad: 'L' | 'R' | '—'; to: string; desc: string }[] = [
   { key: 'W A S D / ↑←↓→', pad: 'L', to: '左摇杆', desc: '漫游移动（VR 视点）' },
@@ -29,21 +24,18 @@ const MAPPINGS: { key: string; pad: 'L' | 'R' | '—'; to: string; desc: string 
   { key: '长按「解锁」按钮 1s', pad: '—', to: '使能链路', desc: 'LOCKED → ARMED（对应长按右摇杆）' },
 ];
 
-const STATS = [
+const STATS: StatItem[] = [
   { name: 'PICO 头显 · Unity', lamp: 'warn', state: '待接入' },
   { name: 'WebSocket 下行桥', lamp: 'warn', state: '未部署（P5）' },
   { name: '安全联锁状态机', lamp: 'ok', state: '本地运行' },
 ];
 
-const LAMP_CLS: Record<string, string> = { ok: '', warn: 'lamp-warn', off: 'lamp-alarm' };
-const VAL_CLS: Record<string, string> = { ok: 'on', warn: 'warn', off: '' };
-document.getElementById('tp-stats')!.innerHTML = STATS.map((s) => `
-  <li><span class="lamp ${LAMP_CLS[s.lamp]}"></span><b>${s.name}</b><span class="val ${VAL_CLS[s.lamp]}">${s.state}</span></li>`).join('');
+renderStatList(document.getElementById('tp-stats')!, STATS);
 
 document.getElementById('tp-map')!.innerHTML = MAPPINGS.map((m) => `
   <tr><td class="m-key">${m.key}</td><td class="m-pad">${m.pad}</td><td class="m-to">${m.to}</td><td class="m-desc">${m.desc}</td></tr>`).join('');
 
-/* ================= 输入状态（帧循环渲染到 SVG） ================= */
+/* ===== 输入状态（帧循环渲染到 SVG） ===== */
 
 const input = {
   lStick: { x: 0, y: 0 },   // -1..1
@@ -137,7 +129,7 @@ view.addEventListener('pointerup', (e) => {
 view.addEventListener('pointercancel', () => { input.rA = false; input.rB = false; });
 view.addEventListener('contextmenu', (e) => e.preventDefault()); // 右键是 B 键，别弹菜单
 
-/* ================= 安全联锁状态机（三级防护） ================= */
+/* ===== 安全联锁状态机（三级防护） ===== */
 
 type LockState = 'LOCKED' | 'ARMED' | 'ESTOP';
 let lock: LockState = 'LOCKED';
@@ -237,7 +229,7 @@ estopBtn.addEventListener('click', () => {
   }
 });
 
-/* ================= 事件日志 ================= */
+/* ===== 事件日志 ===== */
 
 const logEl = document.getElementById('tp-log')!;
 const logs: { t: string; msg: string }[] = [];
@@ -248,7 +240,7 @@ function logEvent(msg: string): void {
   logEl.innerHTML = logs.map((l) => `<li><span class="log-t">${l.t}</span><span>${l.msg}</span></li>`).join('');
 }
 
-/* ================= 帧循环：输入状态 → 手柄 SVG ================= */
+/* ===== 帧循环：输入状态 → 手柄 SVG ===== */
 
 const lThumb = document.getElementById('l-thumb')!;
 const rThumb = document.getElementById('r-thumb')!;
@@ -293,7 +285,7 @@ function frame(): void {
 }
 requestAnimationFrame(frame);
 
-/* ================= 初始 ================= */
+/* ===== 初始 ===== */
 
 setLock('LOCKED');
 logEvent('镜像就绪 · LOCKED');

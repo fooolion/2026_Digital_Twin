@@ -1,21 +1,20 @@
 /**
- * 总览驾驶舱（2026-10-25 R2 重写，指导老师方向：操作员工作台而非宣传页）。
- * 布局：左系统状态 + 中三维视口 + 右 KPI + 底部四步工作流。
- *
- * ⚠ 数据驱动预留：SYSTEM/SCENE/KPIS/FLOW 全部集中在本文件顶部配置对象——
- * 场景尺寸、电池建模、真机链路状态确定后改这里即可，不动 DOM 结构。
- * 三维视口为轻量程序化场景（零模型下载，保首屏速度）；完整 MuJoCo 仿真在 sim.html。
+ * 总览驾驶舱（老师工作流入口：操作员工作台）。
+ * 布局：左系统状态 + 中真机 URDF 三维视口 + 右 KPI + 底部四步工作流。
+ * 数据：SYSTEM/SCENE/KPIS/FLOW 顶部配置对象（场景尺寸/电池建模/链路状态定稿后改配置即联动）。
+ * P5 接入点：SYSTEM 状态灯改轮询伴生服务。
+ * Rev: R2 · 2026-10-25
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { mountNav } from './nav';
+import { mountNav, renderStatList, type StatItem } from './nav';
 import './theme.css';
 import './cockpit.css';
 
-/* ================= 配置区（数据驱动预留） ================= */
+/* ===== 配置区（数据驱动预留） ===== */
 
 // 系统链路状态：lamp = ok | warn | off
-const SYSTEM = [
+const SYSTEM: (StatItem & { href: string })[] = [
   { name: '仿真引擎（MuJoCo WASM）', lamp: 'ok', state: '在线', href: 'sim.html' },
   { name: 'PICO · Unity VR 链路', lamp: 'warn', state: '待接入（P5）', href: 'live.html' },
   { name: '实体机械臂 B601-DM', lamp: 'off', state: '离线 · 未使能', href: 'teleop.html' },
@@ -43,15 +42,11 @@ const FLOW = [
   { no: 4, key: 'live', title: '运行监控', sub: 'STEP 04 · VR 与相机画面', state: 'todo' },
 ];
 
-/* ================= 渲染（配置 → DOM） ================= */
+/* ===== 渲染（配置 → DOM） ===== */
 
 mountNav('home');
 
-const LAMP_CLS: Record<string, string> = { ok: '', warn: 'lamp-warn', off: 'lamp-alarm' };
-const VAL_CLS: Record<string, string> = { ok: 'on', warn: 'warn', off: '' };
-
-document.getElementById('stat-list')!.innerHTML = SYSTEM.map((s) => `
-  <li><span class="lamp ${LAMP_CLS[s.lamp]}"></span><b>${s.name}</b><span class="val ${VAL_CLS[s.lamp]}">${s.state}</span></li>`).join('');
+renderStatList(document.getElementById('stat-list')!, SYSTEM);
 
 document.getElementById('scene-list')!.innerHTML = SCENE.map((s) => `
   <li><b>${s.name}</b><span class="val">${s.value}</span></li>`).join('');
@@ -66,7 +61,7 @@ document.getElementById('flow-bar')!.innerHTML = FLOW.map((f) => `
     <span class="fs-txt"><span>${f.title}</span><small>${f.sub}</small></span>
   </a>`).join('');
 
-/* ================= 中央轻量三维视口 ================= */
+/* ===== 中央轻量三维视口 ===== */
 
 const host = document.getElementById('cockpit-3d')!;
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });

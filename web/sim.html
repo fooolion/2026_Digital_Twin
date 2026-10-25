@@ -12,34 +12,11 @@
       body { font-family: 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif; }
       canvas { display: block; }
       #hud, #tip { pointer-events: none; } /* 覆盖层不拦截指针，避免形成交互死区 */
+      /* 面板皮肤由 theme.css 的 .hud-panel 提供（背景/发光边框/四角括号）；此处只留定位与排版 */
       #hud {
         position: fixed; top: 72px; left: 16px; z-index: 10; /* 72 = 导航高 56 + 16 */
-        padding: 12px 16px 12px 18px; border-radius: 4px;
-        background: linear-gradient(180deg, rgba(13, 42, 79, 0.85), rgba(10, 26, 47, 0.55));
-        backdrop-filter: blur(6px);
-        border: 1px solid rgba(0, 212, 255, 0.28);
-        box-shadow: 0 0 14px rgba(0, 212, 255, 0.10), inset 0 0 22px rgba(0, 60, 120, 0.18);
+        padding: 12px 16px 12px 18px;
         color: #e5e7eb; font-size: 13px; line-height: 1.6;
-      }
-      /* 四角 HUD 括号（复用 theme.css hud-panel 的实现） */
-      #hud::before, #hud::after {
-        content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 4px;
-      }
-      #hud::before {
-        background:
-          linear-gradient(#00d4ff, #00d4ff) left 5px top 5px / 10px 2px,
-          linear-gradient(#00d4ff, #00d4ff) left 5px top 5px / 2px 10px,
-          linear-gradient(#00d4ff, #00d4ff) right 5px bottom 5px / 10px 2px,
-          linear-gradient(#00d4ff, #00d4ff) right 5px bottom 5px / 2px 10px;
-        background-repeat: no-repeat;
-      }
-      #hud::after {
-        background:
-          linear-gradient(#00d4ff, #00d4ff) right 5px top 5px / 10px 2px,
-          linear-gradient(#00d4ff, #00d4ff) right 5px top 5px / 2px 10px,
-          linear-gradient(#00d4ff, #00d4ff) left 5px bottom 5px / 10px 2px,
-          linear-gradient(#00d4ff, #00d4ff) left 5px bottom 5px / 2px 10px;
-        background-repeat: no-repeat;
       }
       #hud h1 { font-size: 14px; font-weight: 600; color: #00d4ff; letter-spacing: .04em; margin-bottom: 2px; }
       #status { color: #9ca3af; }
@@ -49,7 +26,7 @@
         color: #5d7392; font-size: 12px; letter-spacing: .03em;
       }
       /* ===== 关节控制面板（玻璃拟态：blur16 + 1px 半透明边框 + 绿色强调）===== */
-      :root { --jp-acc: #2ee584; --jp-acc-warn: #ffb454; }
+      :root { --jp-acc: var(--color-acc); --jp-acc-warn: var(--color-warn); } /* 引用 theme.css 令牌，单一色源 */
       #jpanel {
         position: fixed; right: 16px; top: 50%; transform: translateY(-50%);
         width: 264px; max-height: 92vh; overflow-y: auto; z-index: 10;
@@ -180,7 +157,7 @@
   </head>
   <body>
     <header id="site-nav"></header>
-    <div id="hud">
+    <div id="hud" class="hud-panel">
       <h1>仿真规划 · ReBot B601-DM</h1>
       <div id="status">初始化…</div>
       <div id="ikerr"></div>

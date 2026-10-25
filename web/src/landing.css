@@ -1,5 +1,4 @@
-/* ===== 首页（index.html）专属样式：Hero / 痛点 / 流程 / 亮点 / 素材位 / 团队 ===== */
-
+/* ===== 关于页（R2）：Hero / 痛点 / 工作原理 / 亮点 / 素材位 / CTA（由 about.ts 引入） ===== */
 /* --- Hero --- */
 .hero { position: relative; min-height: 100svh; display: flex; align-items: center; justify-content: center; }
 .badge {

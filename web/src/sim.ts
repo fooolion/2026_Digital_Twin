@@ -1,11 +1,9 @@
 /**
- * 浏览器里的 B601-DM 数字孪生仿真（功能页2 的内核）：官方 @mujoco/mujoco WASM 跑物理 +
- * Three.js 渲染 + TCP 拖拽 IK（绿球=目标点，臂用 CTC 追）。
- *
- * 与桌面链路的关系：加载的是同一个 ReBot_Arm_DM.xml（真机标定参数），控制结构与
- * rebot_control.py 的 CTC 同思路（bias 前馈 + PD 反馈）。
- *
- * 运行：web/ 下 `npm install && npm run dev` → http://localhost:5173
+ * 仿真规划工作台（老师工作流第②步）：浏览器内真 MuJoCo 物理 + three.js 渲染。
+ * 功能：TCP 拖拽（绿球）/ 关节面板 / 一键夹取演示 / 路径录制回放 / 下发实体臂弹窗（UI 先行）。
+ * 控制：CTC ctrl = bias + KP·e − KD·q̇（KP/KD 照参考站真机同步参数；timestep 1ms）。
+ * P5 接入点：「下发实体臂」弹窗接真机链路后开放。
+ * Rev: P1-P4 · 2026-10-22
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -135,7 +133,7 @@ async function main(): Promise<void> {
   const robot = new THREE.Group();
   scene.add(robot);
   const rgba = model.geom_rgba as Float32Array; // 4*ngeom
-  // 每帧同步图形：绑定未暴露 geom_xquat（WIP），用 body 世界位姿 ∘ geom 静态偏移组合
+  // 每帧同步图形：绑定未暴露 geom_xquat，用 body 世界位姿 ∘ geom 静态偏移组合
   // 预烘焙每个 geom 相对其 body 的局部位姿，运行时只做一次四元数乘法
   const bodyXpos = data.xpos as Float64Array; // 3*nbody 实时视图
   const bodyXquat = data.xquat as Float64Array; // 4*nbody (w,x,y,z)
@@ -195,7 +193,7 @@ async function main(): Promise<void> {
   const ikTarget = readTcp(new THREE.Vector3());
 
   // ===== 关节控制面板（P1）=====
-  // 目标角两个来源：TCP 拖拽（IK 每帧写 targetQ）↔ 手动（滑条写 targetQ），互斥。
+  // 目标角三个来源：任务（演示/回放写 demo.jointTarget）/ TCP 拖拽（IK 每帧写 targetQ）/ 手动（滑条），互斥。
   const DEG = 180 / Math.PI;
   const JOINT_NAMES = ['J1 · 底座回转', 'J2 · 肩', 'J3 · 肘', 'J4 · 腕俯仰', 'J5 · 腕滚转', 'J6 · 法兰'];
   const jointSpecs = JOINT_NAMES.map((label, i) => ({

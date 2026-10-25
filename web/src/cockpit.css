@@ -1,5 +1,4 @@
-/* ===== 总览驾驶舱（2026-10-25 R2；布局照指导老师截图：中央 3D 视口 + 左状态 + 右 KPI + 底部流程） ===== */
-
+/* ===== cp·总览驾驶舱（R2）：左状态列 + 中视口 + 右 KPI + 底部工作流 ===== */
 .cockpit {
   display: grid;
   grid-template-columns: 300px 1fr 300px;
@@ -14,15 +13,7 @@
 .cp-left, .cp-right { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .cp-card { padding: 16px 16px 14px; }
 
-/* 状态列表（左列）：状态灯 + 名称 + 值 */
-.stat-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 11px; }
-.stat-list li { display: flex; align-items: center; gap: 9px; font-size: 13px; }
-.stat-list li b { font-weight: 500; color: rgba(255, 255, 255, 0.92); }
-.stat-list li .val { margin-left: auto; font-size: 12px; }
-.stat-list.kv li .val { color: var(--color-fog); }
-.stat-list li .val.on { color: var(--color-accsoft); }
-.stat-list li .val.warn { color: var(--color-warn); }
-.cp-note { margin: 10px 0 0; font-size: 11px; line-height: 1.6; }
+.cp-note { margin: 10px 0 0; font-size: 11px; line-height: 1.6; } /* stat-list 已上移 theme.css */
 
 /* 中央视口 */
 .cp-center { position: relative; border-radius: 4px; overflow: hidden; min-height: 420px;
@@ -32,12 +23,6 @@
 }
 #cockpit-3d { position: absolute; inset: 0; }
 #cockpit-3d canvas { display: block; }
-.vp-tag {
-  position: absolute; top: 12px; left: 12px; z-index: 2;
-  font-size: 11px; letter-spacing: .08em; color: rgba(0, 212, 255, 0.85);
-  padding: 5px 10px; border: 1px solid rgba(0, 212, 255, 0.30); border-radius: 3px;
-  background: rgba(4, 18, 34, 0.55); backdrop-filter: blur(4px);
-}
 .vp-actions {
   position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 2;
   display: flex; gap: 10px;

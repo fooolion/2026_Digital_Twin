@@ -1,13 +1,14 @@
 /**
- * 「关于」页（宣传内容页）：2026-10-25 R2 从首页迁出。
- * Hero 入场 + GSAP/Lenis 滚动叙事 + 流程连线动画。
+ * 关于页（宣传内容：痛点/工作原理/亮点/素材位/团队已删）。
+ * 动效：GSAP + Lenis 滚动叙事；reduced-motion 时内容直接可见。
+ * Rev: R2 · 2026-10-25
  */
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 import { mountNav } from './nav';
-import './landing.css';
 import './theme.css';
+import './landing.css';
 
 mountNav('about');
 gsap.registerPlugin(ScrollTrigger);

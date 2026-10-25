@@ -1,7 +1,7 @@
 /**
- * 共享顶部导航：每个页面放 <header id="site-nav"></header>，再调用 mountNav(activeKey)。
- * 2026-10-25 R2 重组：按指导老师工作流改为步骤式导航（总览/①零件库/②仿真规划/③遥操作/④运行监控/关于）。
- * 文件名保持不变（sim/live/teleop/workshop）以兼容已发布的外链，仅导航文案与顺序变化。
+ * 共享模块：顶部导航（工作流步骤式：总览/①零件库/②仿真规划/③遥操作/④运行监控/关于）
+ *           + 跨页组件（toast / renderStatList 状态列表）。
+ * Rev: R2 · 2026-10-25
  */
 
 const LINKS = [
@@ -36,17 +36,6 @@ export function mountNav(active: string): void {
   onScroll();
 }
 
-/** 滚动显现：给 .reveal 元素挂 IntersectionObserver（各页复用） */
-export function bindReveal(): void {
-  const io = new IntersectionObserver(
-    (es) => es.forEach((e) => {
-      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
-    }),
-    { threshold: 0.12 },
-  );
-  document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
-}
-
 /** 轻提示（2.4s 自动消失） */
 export function toast(msg: string): void {
   let t = document.getElementById('toast');
@@ -58,4 +47,14 @@ export function toast(msg: string): void {
   t.textContent = msg;
   t.classList.add('show');
   window.setTimeout(() => t!.classList.remove('show'), 2400);
+}
+
+/** 状态列表渲染（跨页组件：总览/监控/遥操作；样式 .stat-list 在 theme.css）。
+ *  P5 接入真链路后，三页只需把 STATS 换成轮询数据再调本函数。 */
+export interface StatItem { name: string; lamp: 'ok' | 'warn' | 'off'; state: string }
+const STAT_LAMP_CLS: Record<string, string> = { ok: '', warn: 'lamp-warn', off: 'lamp-alarm' };
+const STAT_VAL_CLS: Record<string, string> = { ok: 'on', warn: 'warn', off: '' };
+export function renderStatList(el: HTMLElement, items: StatItem[]): void {
+  el.innerHTML = items.map((s) => `
+    <li><span class="lamp ${STAT_LAMP_CLS[s.lamp]}"></span><b>${s.name}</b><span class="val ${STAT_VAL_CLS[s.lamp]}">${s.state}</span></li>`).join('');
 }

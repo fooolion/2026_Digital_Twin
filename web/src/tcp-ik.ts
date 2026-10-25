@@ -1,15 +1,8 @@
 /**
- * TCP 逆运动学：阻尼最小二乘（DLS），影子状态求解、不碰物理态。
- *
- * 结构对照参考站 Yang-Ci/Rebot_Arm_AGV web_mujoco/src/tcp-ik.js（DLS + 奇异度自适应
- * 阻尼），两处升级：mj_jacSite 解析雅可比（替代 12 次 mj_forward 的中心差分）+
- * 内迭代（限位裁剪后残余误差重新分配）。
- *
- * 两套入口：
- *  - servo(target, dt)：每帧走一步——拖拽/路径回放的连续跟踪（物理态进出恢复）；
- *  - solveTo(seed, target, axisDesired?)：离线迭代到收敛——演示路径的航点求解
- *    （不碰物理态；给 axisDesired 时同时约束末端轴方向，6D 误差步进）。
- * 作用对象：6 个臂关节（qpos/dof 0..5；齿轮=6、双指滑轨=7,8 不进 IK），末端 site "tcp"。
+ * TCP 逆运动学模块：servo() 拖拽逐帧伺服（3×3 DLS）+ solveTo() 离线航点求解
+ *           （3D 链式迭代 / 带竖直下压轴约束时走三级网格直搜——6D 迭代法在此臂病态不可用）。
+ * 影子纪律：求解在 data.qpos 影子上进行，进出必须 save/restore。
+ * Rev: P1/P4 · 2026-10-22
  */
 
 // 参考站同名参数（实测验证过的量级）
@@ -24,16 +17,16 @@ const SOLVE_MAX_ITER = 150;      // solveTo 离线收敛的最大轮数（矢量
 const clip = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
 export interface TcpIk {
-  /** tcp site 的 id（main 侧读 site_xpos 复用，免重复 mj_name2id） */
+  /** tcp site 的 id（sim.ts 侧读 site_xpos 复用，免重复 mj_name2id） */
   readonly siteId: number;
   /** 当前 IK 解（6 个臂关节角，rad，已含限位裁剪）——作为物理 PD 的目标 */
   readonly angles: Float64Array;
   /** 拖拽/回放模式：朝目标走一步（dt=帧时长 s）。返回当前 TCP 误差模长 (m)。 */
   servo(target: readonly [number, number, number], dt: number): number;
-  /** 离线求解：从 seed 出发迭代到收敛（≤80 轮），返回解的角度副本（不碰物理态）。
+  /** 离线求解：从 seed 出发迭代到收敛（≤SOLVE_MAX_ITER=150 轮），返回解的角度副本（不碰物理态）。
    *  axisDesired（可选）：末端轴（end_link x̂ = 夹爪指向）的世界方向目标。 */
   solveTo(seed: Float64Array, target: readonly [number, number, number],
-          axisDesired?: readonly [number, number, number]): Float64Array | null;
+          axisDesired?: readonly [number, number, number]): Float64Array; // 恒有解（网格/迭代路径不返回 null）
   /** 把 IK 解重置为物理当前关节角（抓球/死区回位时调用——否则 IK 解与物理姿态
    *  脱节，回位瞬间 CTC 目标角跳变，臂会"弹"一下）。 */
   resetToPhysics(): void;
@@ -199,7 +192,7 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
     seed: Float64Array,
     target: readonly [number, number, number],
     axisDesired?: readonly [number, number, number],
-  ): Float64Array | null {
+  ): Float64Array {
     // 影子纪律与 servo 一致：进出恢复物理态——中途 putQ 的候选解（含被拒的）
     // 绝不能留在 data.qpos 里，否则演示建计划一结束物理臂被瞬移到垃圾姿态
     const saved = new Float64Array(data.qpos.length);

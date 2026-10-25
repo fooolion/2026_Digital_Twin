@@ -1,9 +1,11 @@
+/* ===== 全站共享（theme）：Tailwind v4 令牌 / HUD 原语（面板·状态灯·步骤点·视口标签·状态列表）/ 导航 / 通用组件。
+   规则：被两页以上消费的组件必须住在这里，页面前缀样式禁止跨页引用。 ===== */
+
 @import "tailwindcss";
 
 /* ===== 全站设计令牌（与 sim 面板 .jp-* 一致的视觉语言）===== */
 @theme {
   --color-ink: #0a1220;       /* 页面底色（工业深蓝，631 法则的 60%） */
-  --color-ink2: #0e1c33;      /* 面板底色 */
   --color-acc: #2ee584;       /* 在线/成功绿（辅助色，仿真在线态） */
   --color-accsoft: #7df0bd;
   --color-warn: #ffb454;      /* 琥珀（复位/手动/警告） */
@@ -13,7 +15,7 @@
   --color-hud: #2e8bff;       /* 主色·科技蓝（边框/选中态/图表主系列） */
   --color-hudglow: #00d4ff;   /* 强调·青（发光/HUD 角标/KPI 数字） */
   --color-alarm: #ff4d4f;     /* 告警红（急停/超限，配闪烁） */
-  --color-hudpanel: rgba(13, 42, 79, 0.82); /* HUD 面板半透明底 */
+  --color-hudpanel: rgba(13, 42, 79, 0.85); /* HUD 面板半透明底（.hud-panel 消费） */
 }
 
 html { color-scheme: dark; scroll-behavior: smooth; }
@@ -28,7 +30,7 @@ body {
 /* HUD 面板：半透明渐变底 + 发光边框 + 四角括号（纯 CSS，无图片） */
 .hud-panel {
   position: relative;
-  background: linear-gradient(180deg, rgba(13, 42, 79, 0.85), rgba(10, 26, 47, 0.55));
+  background: linear-gradient(180deg, var(--color-hudpanel), rgba(10, 26, 47, 0.55));
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   border: 1px solid rgba(0, 212, 255, 0.28);
   box-shadow: 0 0 14px rgba(0, 212, 255, 0.10), inset 0 0 22px rgba(0, 60, 120, 0.18);
@@ -75,6 +77,23 @@ body {
   text-shadow: 0 0 18px rgba(0, 212, 255, 0.45);
 }
 
+/* 状态列表（跨页组件：总览/监控/遥操作三页消费；JS 侧配套 renderStatList 见 nav.ts） */
+.stat-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 11px; }
+.stat-list li { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+.stat-list li b { font-weight: 500; color: rgba(255, 255, 255, 0.92); }
+.stat-list li .val { margin-left: auto; font-size: 12px; }
+.stat-list.kv li .val { color: var(--color-fog); }
+.stat-list li .val.on { color: var(--color-accsoft); }
+.stat-list li .val.warn { color: var(--color-warn); }
+
+/* 视口标签（跨页组件：各页 3D/视频视口左上角的悬浮标签） */
+.vp-tag {
+  position: absolute; top: 12px; left: 12px; z-index: 2;
+  font-size: 11px; letter-spacing: .08em; color: rgba(0, 212, 255, 0.85);
+  padding: 5px 10px; border: 1px solid rgba(0, 212, 255, 0.30); border-radius: 3px;
+  background: rgba(4, 18, 34, 0.55); backdrop-filter: blur(4px);
+}
+
 /* 状态灯：正常绿 / 警告琥珀 / 告警红闪烁 */
 .lamp {
   display: inline-block; width: 8px; height: 8px; border-radius: 50%;
@@ -83,9 +102,6 @@ body {
 .lamp-warn { background: var(--color-warn); box-shadow: 0 0 8px rgba(255, 180, 84, 0.8); }
 .lamp-alarm { background: var(--color-alarm); box-shadow: 0 0 10px rgba(255, 77, 79, 0.9); animation: lamp-blink 1s steps(2, start) infinite; }
 @keyframes lamp-blink { 50% { opacity: .25; } }
-
-/* 切角容器（工业硬朗感，用于按钮/卡片变体） */
-.clip-corner { clip-path: polygon(0 8px, 8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%); }
 
 /* 步骤 tab：编号圆点 + 完成态（拓竹式工作流导航用） */
 .step-no {
@@ -96,7 +112,7 @@ body {
   background: rgba(0, 212, 255, 0.14); color: var(--color-hudglow);
   border: 1px solid rgba(0, 212, 255, 0.35);
 }
-a.active .step-no, .step-tab.active .step-no { background: var(--color-hudglow); color: #04121f; box-shadow: 0 0 10px rgba(0, 212, 255, 0.5); }
+a.active .step-no { background: var(--color-hudglow); color: #04121f; box-shadow: 0 0 10px rgba(0, 212, 255, 0.5); }
 
 /* 视觉隐藏但读屏可达（页面主标题用） */
 .sr-only {
@@ -105,7 +121,6 @@ a.active .step-no, .step-tab.active .step-no { background: var(--color-hudglow);
 }
 
 /* 文字层级（大屏规范：白字三级透明度） */
-.t-hi { color: rgba(255, 255, 255, 1); }
 .t-mid { color: rgba(255, 255, 255, 0.75); }
 .t-lo { color: rgba(255, 255, 255, 0.45); }
 
@@ -204,13 +219,6 @@ a.active .step-no, .step-tab.active .step-no { background: var(--color-hudglow);
 .btn-ghost:hover { border-color: rgba(255, 255, 255, 0.30); transform: translateY(-2px); }
 .btn-ghost:active { transform: translateY(0) scale(.98); }
 
-/* 滚动显现 */
-.reveal {
-  opacity: 0; transform: translateY(22px);
-  transition: opacity .7s cubic-bezier(.22, 1, .36, 1), transform .7s cubic-bezier(.22, 1, .36, 1);
-}
-.reveal.in { opacity: 1; transform: none; }
-
 /* toast 轻提示 */
 #toast {
   position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(8px);
@@ -223,6 +231,5 @@ a.active .step-no, .step-tab.active .step-no { background: var(--color-hudglow);
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 @media (prefers-reduced-motion: reduce) {
-  .reveal { transition: none; opacity: 1; transform: none; }
   html { scroll-behavior: auto; }
 }

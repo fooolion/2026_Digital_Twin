@@ -1,26 +1,24 @@
 /**
- * 运行监控页（R4，2026-10-25）：老师工作流第④步的观察窗口。
- * 布局照 Bambu Studio Device tab + stretch_web_teleop 规范：
- * 左视频流（PICO 大屏 + 双相机小窗）· 右急停/链路/速度档 · 底部关节遥测趋势。
- * 当前视频与遥测均为占位/演示数据——P5 伴生服务（FastAPI+WebSocket+MJPEG）接入后替换。
+ * 运行监控页（老师工作流第④步：执行阶段观察窗口）。
+ * 布局：左视频流（PICO 大屏+双相机占位）+ 右急停/链路/速度档 + 底部 ECharts 关节遥测。
+ * 数据：STATS 静态配置、遥测为滚动演示数据。
+ * P5 接入点：视频 src（WebRTC/MJPEG）、STATS 轮询、遥测换 WebSocket 实时流。
+ * Rev: R4 · 2026-10-25
  */
-import { mountNav, toast } from './nav';
+import { mountNav, toast, renderStatList, type StatItem } from './nav';
 import './theme.css';
 import './monitor.css';
 
 mountNav('live');
 
 /* ===== 链路状态（数据驱动；P5 接入后改为轮询伴生服务） ===== */
-const STATS = [
+const STATS: StatItem[] = [
   { name: 'PICO · Unity VR 串流', lamp: 'warn', state: '待接入' },
   { name: '相机 A / 相机 B', lamp: 'warn', state: '待接入' },
   { name: 'WebSocket 桥', lamp: 'warn', state: '未部署（P5）' },
   { name: '实体臂 B601-DM', lamp: 'off', state: '离线 · 未使能' },
 ];
-const LAMP_CLS: Record<string, string> = { ok: '', warn: 'lamp-warn', off: 'lamp-alarm' };
-const VAL_CLS: Record<string, string> = { ok: 'on', warn: 'warn', off: '' };
-document.getElementById('mn-stats')!.innerHTML = STATS.map((s) => `
-  <li><span class="lamp ${LAMP_CLS[s.lamp]}"></span><b>${s.name}</b><span class="val ${VAL_CLS[s.lamp]}">${s.state}</span></li>`).join('');
+renderStatList(document.getElementById('mn-stats')!, STATS);
 
 /* ===== 速度档（stretch_web_teleop 三件套之一；默认 3 档） ===== */
 const GEARS = ['1', '2', '3', '4', '5'];

@@ -92,11 +92,11 @@ scene.add(new THREE.AmbientLight(0xbfd4ff, 0.55));
 const key = new THREE.DirectionalLight(0xffffff, 1.1); key.position.set(1.5, -2, 2.5); scene.add(key);
 const rim = new THREE.DirectionalLight(0x4da3ff, 0.5); rim.position.set(-2, 1.5, 1); scene.add(rim);
 
-// ===== 真机模型（官方 URDF + 低模视觉网格）=====
-// 资产链：官方 reBot-DevArm/Rebot_Arm_description/DM 的 URDF + visual 网格
-//   → tools/make_visual_lo.py 减面（21MB→4.4MB，主体件 5000 面/硬件件 1200 面）
-//   → web/public/models/visual_lo/ + ReBot_Arm_DM_preview.urdf（mesh 路径已重写）
-// URDF 本身 Z-up，与视口约定一致，无需根旋转。
+// ===== 真机模型（官方 URDF + 原始全分辨率视觉网格，~21MB）=====
+// 资产链：官方 reBot-DevArm/Rebot_Arm_description/DM 的 URDF + visual 分色网格
+//   → 原样拷贝 web/public/models/visual/（用户 2026-10-25 决策：不减面，保真优先；
+//     曾试减面 21MB→4.4MB 但视觉损失明显被否决）+ ReBot_Arm_DM_preview.urdf（路径重写）
+// 首次加载 ~21MB：进度条 + 说明；浏览器缓存后秒开。URDF 原生 Z-up 与视口一致。
 const MAT_FLOOR = new THREE.MeshStandardMaterial({ color: 0x0c1a30, roughness: 0.9, metalness: 0.1, transparent: true, opacity: 0.85 });
 const floor = new THREE.Mesh(new THREE.CircleGeometry(0.85, 64), MAT_FLOOR);
 floor.position.z = -0.001;
@@ -107,18 +107,38 @@ scene.add(floor, grid);
 
 type UrdfRobot = { joints: Record<string, { setJointValue(v: number): boolean }> } & THREE.Object3D;
 let robot: UrdfRobot | null = null;
-const loadTag = document.createElement('div');
-loadTag.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;font-size:12px;letter-spacing:.08em;color:rgba(0,212,255,.85)';
-loadTag.textContent = '加载真机模型…';
-host.appendChild(loadTag);
+
+// 加载覆盖层：说明 + 字节级进度条
+const loadMask = document.createElement('div');
+loadMask.style.cssText = 'position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(6,13,26,.55);backdrop-filter:blur(2px);transition:opacity .5s ease';
+loadMask.innerHTML = `
+  <div style="font-size:13px;letter-spacing:.1em;color:rgba(0,212,255,.9)">正在加载真机模型（reBot B601-DM）</div>
+  <div style="width:min(280px,70%);height:4px;border-radius:2px;background:rgba(0,212,255,.12);overflow:hidden">
+    <div id="cp-load-bar" style="width:0%;height:100%;border-radius:2px;background:linear-gradient(90deg,#2e8bff,#00d4ff);box-shadow:0 0 10px rgba(0,212,255,.6);transition:width .25s ease"></div>
+  </div>
+  <div id="cp-load-txt" style="font-size:11px;color:rgba(255,255,255,.45)">准备中…</div>
+  <div style="font-size:10.5px;color:rgba(255,255,255,.30);max-width:300px;text-align:center;line-height:1.7">完整视觉模型约 21 MB，首次加载需 10~60 秒（取决于网络）；<br>加载一次后浏览器缓存，之后秒开</div>`;
+host.appendChild(loadMask);
+const barEl = loadMask.querySelector('#cp-load-bar') as HTMLElement;
+const txtEl = loadMask.querySelector('#cp-load-txt') as HTMLElement;
 
 void (async () => {
   const { default: URDFLoader } = await import('urdf-loader');
   try {
-    const loader = new URDFLoader();
+    const manager = new THREE.LoadingManager();
+    manager.onProgress = (_url, loaded, total) => {
+      const pct = total > 0 ? Math.round((loaded / total) * 100) : 0;
+      barEl.style.width = `${pct}%`;
+      txtEl.textContent = `网格 ${Math.min(loaded, total)}/${total} · ${pct}%`;
+    };
+    manager.onError = (url) => { txtEl.textContent = `部分资源加载失败：${url.split('/').pop()}`; };
+    const loader = new URDFLoader(manager);
     const r = await loader.loadAsync(`${import.meta.env.BASE_URL}models/ReBot_Arm_DM_preview.urdf`) as unknown as UrdfRobot;
     robot = r;
-    loadTag.remove();
+    barEl.style.width = '100%';
+    txtEl.textContent = '完成';
+    loadMask.style.opacity = '0';
+    window.setTimeout(() => loadMask.remove(), 550);
     scene.add(r);
     (window as unknown as Record<string, unknown>).__cpRobot = r; // 调试句柄（现场检查用）
     if (reduced) {
@@ -131,8 +151,8 @@ void (async () => {
       r.joints.joint6.setJointValue(0);
     }
   } catch (e) {
-    loadTag.textContent = '模型加载失败（检查网络后刷新）';
-    loadTag.style.color = 'rgba(255,180,84,.9)';
+    txtEl.textContent = '模型加载失败（检查网络后刷新）';
+    txtEl.style.color = 'rgba(255,180,84,.9)';
     console.error(e);
   }
 })();

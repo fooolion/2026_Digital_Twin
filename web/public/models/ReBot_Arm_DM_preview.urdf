@@ -42,21 +42,21 @@
     <visual name="base_link_silver_trim">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_base_link_silver_trim.stl" />
+        <mesh filename="visual/colored_base_link_silver_trim.stl" />
       </geometry>
       <material name="silver_trim" />
     </visual>
     <visual name="base_link_hardware_black">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_base_link_hardware_black.stl" />
+        <mesh filename="visual/colored_base_link_hardware_black.stl" />
       </geometry>
       <material name="hardware_black" />
     </visual>
     <visual name="base_link_matte_black">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_base_link_matte_black.stl" />
+        <mesh filename="visual/colored_base_link_matte_black.stl" />
       </geometry>
       <material name="matte_black" />
     </visual>
@@ -76,21 +76,21 @@
     <visual name="link1_matte_black">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link1_matte_black.stl" />
+        <mesh filename="visual/colored_link1_matte_black.stl" />
       </geometry>
       <material name="matte_black" />
     </visual>
     <visual name="link1_hardware_black">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link1_hardware_black.stl" />
+        <mesh filename="visual/colored_link1_hardware_black.stl" />
       </geometry>
       <material name="hardware_black" />
     </visual>
     <visual name="link1_anodized_grey">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link1_anodized_grey.stl" />
+        <mesh filename="visual/colored_link1_anodized_grey.stl" />
       </geometry>
       <material name="anodized_grey" />
     </visual>
@@ -117,28 +117,28 @@
     <visual name="link2_seeed_yellow">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link2_seeed_yellow.stl" />
+        <mesh filename="visual/colored_link2_seeed_yellow.stl" />
       </geometry>
       <material name="seeed_yellow" />
     </visual>
     <visual name="link2_matte_black">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link2_matte_black.stl" />
+        <mesh filename="visual/colored_link2_matte_black.stl" />
       </geometry>
       <material name="matte_black" />
     </visual>
     <visual name="link2_hardware_black">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link2_hardware_black.stl" />
+        <mesh filename="visual/colored_link2_hardware_black.stl" />
       </geometry>
       <material name="hardware_black" />
     </visual>
     <visual name="link2_anodized_grey">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link2_anodized_grey.stl" />
+        <mesh filename="visual/colored_link2_anodized_grey.stl" />
       </geometry>
       <material name="anodized_grey" />
     </visual>
@@ -165,28 +165,28 @@
     <visual name="link3_seeed_yellow">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link3_seeed_yellow.stl" />
+        <mesh filename="visual/colored_link3_seeed_yellow.stl" />
       </geometry>
       <material name="seeed_yellow" />
     </visual>
     <visual name="link3_matte_black">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link3_matte_black.stl" />
+        <mesh filename="visual/colored_link3_matte_black.stl" />
       </geometry>
       <material name="matte_black" />
     </visual>
     <visual name="link3_hardware_black">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link3_hardware_black.stl" />
+        <mesh filename="visual/colored_link3_hardware_black.stl" />
       </geometry>
       <material name="hardware_black" />
     </visual>
     <visual name="link3_anodized_grey">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link3_anodized_grey.stl" />
+        <mesh filename="visual/colored_link3_anodized_grey.stl" />
       </geometry>
       <material name="anodized_grey" />
     </visual>
@@ -213,28 +213,28 @@
     <visual name="link4_seeed_yellow">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link4_seeed_yellow.stl" />
+        <mesh filename="visual/colored_link4_seeed_yellow.stl" />
       </geometry>
       <material name="matte_black" />
     </visual>
     <visual name="link4_matte_black">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link4_matte_black.stl" />
+        <mesh filename="visual/colored_link4_matte_black.stl" />
       </geometry>
       <material name="matte_black" />
     </visual>
     <visual name="link4_hardware_black">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link4_hardware_black.stl" />
+        <mesh filename="visual/colored_link4_hardware_black.stl" />
       </geometry>
       <material name="hardware_black" />
     </visual>
     <visual name="link4_anodized_grey">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link4_anodized_grey.stl" />
+        <mesh filename="visual/colored_link4_anodized_grey.stl" />
       </geometry>
       <material name="anodized_grey" />
     </visual>
@@ -261,21 +261,21 @@
     <visual name="link5_matte_black">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link5_matte_black.stl" />
+        <mesh filename="visual/colored_link5_matte_black.stl" />
       </geometry>
       <material name="matte_black" />
     </visual>
     <visual name="link5_hardware_black">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link5_hardware_black.stl" />
+        <mesh filename="visual/colored_link5_hardware_black.stl" />
       </geometry>
       <material name="hardware_black" />
     </visual>
     <visual name="link5_anodized_grey">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link5_anodized_grey.stl" />
+        <mesh filename="visual/colored_link5_anodized_grey.stl" />
       </geometry>
       <material name="anodized_grey" />
     </visual>
@@ -302,14 +302,14 @@
     <visual name="link6_matte_black">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link6_matte_black.stl" />
+        <mesh filename="visual/colored_link6_matte_black.stl" />
       </geometry>
       <material name="matte_black" />
     </visual>
     <visual name="link6_hardware_black">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_link6_hardware_black.stl" />
+        <mesh filename="visual/colored_link6_hardware_black.stl" />
       </geometry>
       <material name="hardware_black" />
     </visual>
@@ -336,21 +336,21 @@
     <visual name="gripper_base_seeed_yellow">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_gripper_base_seeed_yellow.stl" />
+        <mesh filename="visual/colored_gripper_base_seeed_yellow.stl" />
       </geometry>
       <material name="gripper_seeed_yellow" />
     </visual>
     <visual name="gripper_base_hardware_black">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_gripper_base_hardware_black.stl" />
+        <mesh filename="visual/colored_gripper_base_hardware_black.stl" />
       </geometry>
       <material name="gripper_hardware_black" />
     </visual>
     <visual name="gripper_base_metal">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_gripper_base_metal.stl" />
+        <mesh filename="visual/colored_gripper_base_metal.stl" />
       </geometry>
       <material name="gripper_base_metal" />
     </visual>
@@ -371,7 +371,7 @@
     <visual name="finger_left_body">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_left_finger_finger_black.stl" />
+        <mesh filename="visual/colored_left_finger_finger_black.stl" />
       </geometry>
       <material name="gripper_finger_black" />
     </visual>
@@ -392,7 +392,7 @@
     <visual name="finger_left_crossed_rack">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_left_finger_rack_metal.stl" />
+        <mesh filename="visual/colored_left_finger_rack_metal.stl" />
       </geometry>
       <material name="gripper_rack_metal" />
     </visual>
@@ -414,7 +414,7 @@
     <visual name="finger_right_body">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_right_finger_finger_black.stl" />
+        <mesh filename="visual/colored_right_finger_finger_black.stl" />
       </geometry>
       <material name="gripper_finger_black" />
     </visual>
@@ -435,7 +435,7 @@
     <visual name="finger_right_crossed_rack">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="visual_lo/colored_right_finger_rack_metal.stl" />
+        <mesh filename="visual/colored_right_finger_rack_metal.stl" />
       </geometry>
       <material name="gripper_rack_metal" />
     </visual>

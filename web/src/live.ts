@@ -6,19 +6,66 @@
  * Rev: R4 · 2026-10-25
  */
 import { mountNav, toast, renderStatList, type StatItem } from './nav';
+import { probeCompanion, COMPANION_BASE } from './companion';
 import './theme.css';
 import './monitor.css';
 
 mountNav('live');
 
 /* ===== 链路状态（数据驱动；P5 接入后改为轮询伴生服务） ===== */
-const STATS: StatItem[] = [
+const STATS: (StatItem & { probe?: 'cams' })[] = [
   { name: 'PICO · Unity VR 串流', lamp: 'warn', state: '待接入' },
-  { name: '相机 A / 相机 B', lamp: 'warn', state: '待接入' },
+  { name: '相机 A / 相机 B', lamp: 'warn', state: '探测中…', probe: 'cams' },
   { name: 'WebSocket 桥', lamp: 'warn', state: '未部署（P5）' },
   { name: '实体臂 B601-DM', lamp: 'off', state: '离线 · 未使能' },
 ];
 renderStatList(document.getElementById('mn-stats')!, STATS);
+
+/* ===== P5-B：伴生服务在线 → 双摄像头 MJPEG 填 src + 状态灯；断流回退占位 ===== */
+const camImgs = [
+  document.getElementById('cam-a') as HTMLImageElement,
+  document.getElementById('cam-b') as HTMLImageElement,
+];
+const camPhs = [
+  document.getElementById('cam-a-box')!.querySelector('.mn-video-ph') as HTMLElement,
+  document.getElementById('cam-b-box')!.querySelector('.mn-video-ph') as HTMLElement,
+];
+
+function attachCam(slot: 0 | 1): void {
+  const img = camImgs[slot];
+  img.src = `${COMPANION_BASE}/cam/${slot}.mjpg?t=${Date.now()}`; // t 参数防旧流缓存
+  img.style.display = 'block';
+  camPhs[slot].style.display = 'none';
+  img.onerror = (): void => { // 服务中途停止 → 回退占位层
+    img.style.display = 'none';
+    img.removeAttribute('src');
+    camPhs[slot].style.display = 'flex';
+  };
+}
+
+void (async () => {
+  const h = await probeCompanion();
+  if (!h?.ok) {
+    const i = STATS.findIndex((s) => s.probe === 'cams');
+    if (i >= 0) STATS[i] = { ...STATS[i], lamp: 'warn', state: '未启动（演示模式）' };
+    renderStatList(document.getElementById('mn-stats')!, STATS);
+    return;
+  }
+  attachCam(0);
+  attachCam(1);
+  // 相机在线状态（工业相机可能未接——MJPEG 流有占位帧，状态灯如实显示）
+  try {
+    const res = await fetch(`${COMPANION_BASE}/api/cams`);
+    const { cams } = await res.json() as { cams: { slot: number; online: boolean }[] };
+    const i = STATS.findIndex((s) => s.probe === 'cams');
+    if (i >= 0) {
+      const n = cams.filter((c) => c.online).length;
+      STATS[i] = { ...STATS[i], lamp: n === cams.length ? 'ok' : n > 0 ? 'warn' : 'off',
+        state: n === cams.length ? '双路在线' : n > 0 ? `${n}/${cams.length} 路在线` : '相机未接入（占位帧）' };
+      renderStatList(document.getElementById('mn-stats')!, STATS);
+    }
+  } catch { /* 状态查询失败不影响流 */ }
+})();
 
 /* ===== 速度档（stretch_web_teleop 三件套之一；默认 3 档） ===== */
 const GEARS = ['1', '2', '3', '4', '5'];

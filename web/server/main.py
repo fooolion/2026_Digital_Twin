@@ -7,6 +7,8 @@ P5-A 伴生服务骨架（FastAPI · 2026-10-25）
 职责（骨架范围）：
   1. 静态托管 web/dist（先 npm run build）
   2. GET /api/health    健康检查（前端 companion.ts 探测此端点切换"实时/演示"双模）
+  2b. GET /cam/{0,1}.mjpg  双摄像头 MJPEG 流（P5-B；懒启动+共享编码+离线占位帧）
+      GET /api/cams        摄像头在线状态
   3. WS  /ws            桥接 hub（P5-B~E 的地基）：
        - 客户端角色：role=web（浏览器页）/ pc（PC 权威端，将来接 UDP 链路）
        - 协议（JSON）：{type, role?, payload?, ts?}
@@ -19,14 +21,17 @@ P5-A 伴生服务骨架（FastAPI · 2026-10-25）
   （依赖：fastapi + uvicorn[standard]，已装 .rebot venv）
 
 P5-B~E 扩展点（本骨架不动）：
-  - 双摄像头 MJPEG：加 /cam/{n}.mjpg 端点（cv2 循环编码 JPEG 流）
   - PICO 大屏视频：OBS→MediaMTX→WebRTC，网页端直连 MediaMTX，不经本服务
   - PC 权威端接入：pc 角色客户端桥接 UDP 9003/9004
 """
 import asyncio
 import json
+import os
 import time
 from pathlib import Path
+
+import cv2
+import numpy as np
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -35,6 +40,13 @@ from fastapi.staticfiles import StaticFiles
 
 HOST, PORT = "0.0.0.0", 8800
 DIST = Path(__file__).resolve().parent.parent / "dist"
+
+# 摄像头映射（P5-B）：slot 0/1（网页端相机 A/B）→ cv2 设备索引。
+# 本机实测：工业相机 = 1（侧墙）/ 2（后墙）；笔记本内置 0 仅测试用。
+# 相机编号是"本机相关"的（换机器重新确认）；环境变量 COMPANION_CAMS="1,2" 可覆盖。
+CAM_IDS = [int(x) for x in os.environ.get("COMPANION_CAMS", "1,2").split(",")]
+CAM_FPS = 15          # MJPEG 帧率上限（1080p JPEG q70 下单流约 1-2 MB/s，局域网够用）
+CAM_JPEG_QUALITY = 70
 
 app = FastAPI(title="伴生服务 · 报废电池拆解数字孪生", version="0.1.0", docs_url=None, redoc_url=None, openapi_url=None)
 # CORS：dev 模式下前端跑在 5173，探测/连接 8800 为跨源——本机演示服务放开无风险
@@ -127,6 +139,84 @@ def _LAN_IP() -> str | None:
         return ip
     except OSError:
         return None
+
+
+class CamStream:
+    """单相机共享读取器：后台 task 读帧+编码一次，多连接共享同一份 JPEG bytes。
+    读不到帧（未接/被占）→ 生成占位帧（灰底文字），流不断。懒启动（首个请求才开相机）。"""
+
+    def __init__(self, slot: int, device: int) -> None:
+        self.slot, self.device = slot, device
+        self.jpeg: bytes | None = None
+        self.online = False
+        self.event = asyncio.Event()
+        self._task: asyncio.Task | None = None
+        self._lock = asyncio.Lock()
+
+    def _placeholder(self) -> bytes:
+        frame = np.full((360, 640, 3), 14, dtype=np.uint8)
+        cv2.putText(frame, f"Camera {chr(65 + self.slot)} offline (cv2:{self.device})",
+                    (70, 190), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (90, 160, 210), 2)
+        ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
+        return buf.tobytes() if ok else b""
+
+    async def _run(self) -> None:
+        interval = 1.0 / CAM_FPS
+        loop = asyncio.get_running_loop()
+        cap = await loop.run_in_executor(None, lambda: cv2.VideoCapture(self.device, cv2.CAP_DSHOW))
+        try:
+            while True:
+                t0 = time.monotonic()
+                ok, frame = await loop.run_in_executor(None, cap.read)
+                if ok:
+                    self.online = True
+                    encoded, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, CAM_JPEG_QUALITY])
+                    if encoded:
+                        self.jpeg = buf.tobytes()
+                else:
+                    self.online = False
+                    self.jpeg = self._placeholder()
+                self.event.set()
+                self.event = asyncio.Event()  # 新一帧唤醒所有等待者
+                await asyncio.sleep(max(0, interval - (time.monotonic() - t0)))
+        finally:
+            await loop.run_in_executor(None, cap.release)
+
+    async def ensure_started(self) -> None:
+        async with self._lock:
+            if self._task is None or self._task.done():
+                self._task = asyncio.create_task(self._run())
+
+    async def frames(self):
+        """MJPEG 生成器：等新帧 → yield（多连接共享同一份 jpeg，编码每帧只做一次）。"""
+        await self.ensure_started()
+        while True:
+            if self.jpeg:
+                yield (
+                    b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                    + str(len(self.jpeg)).encode() + b"\r\n\r\n" + self.jpeg + b"\r\n"
+                )
+            await self.event.wait()
+
+
+_CAMS = [CamStream(slot, dev) for slot, dev in enumerate(CAM_IDS)]
+
+
+@app.get("/api/cams")
+async def cams_status() -> dict:
+    return {"cams": [{"slot": c.slot, "device": c.device, "online": c.online} for c in _CAMS]}
+
+
+@app.get("/cam/{slot}.mjpg")
+async def cam_mjpg(slot: int):
+    from fastapi.responses import StreamingResponse
+    if slot >= len(_CAMS):
+        return {"ok": False, "detail": "slot out of range"}
+    return StreamingResponse(
+        _CAMS[slot].frames(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.websocket("/ws")

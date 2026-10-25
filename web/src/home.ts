@@ -196,9 +196,9 @@ function doFit(r: UrdfRobot): void {
   const size = box.getSize(new THREE.Vector3());
   const radius = size.length() * 0.5;
   if (!Number.isFinite(radius) || radius <= 0) return;
-  const dist = Math.min(Math.max((radius / Math.sin(THREE.MathUtils.degToRad(camera.fov * 0.5))) * 1.3, 1.15), controls.maxDistance);
-  const AZ = THREE.MathUtils.degToRad(30);
-  const EL = THREE.MathUtils.degToRad(25);
+  const dist = Math.min(Math.max((radius / Math.sin(THREE.MathUtils.degToRad(camera.fov * 0.5))) * 1.5, 1.3), controls.maxDistance);
+  const AZ = THREE.MathUtils.degToRad(18);
+  const EL = THREE.MathUtils.degToRad(35);
   const dir = new THREE.Vector3(Math.cos(EL) * Math.sin(AZ), -Math.cos(EL) * Math.cos(AZ), Math.sin(EL));
   const center = box.getCenter(new THREE.Vector3());
   controls.target.copy(center);
@@ -234,6 +234,15 @@ function doFit(r: UrdfRobot): void {
     camera.lookAt(controls.target);
     controls.update();
   }
+  // 构图微调：臂略偏左上，底部按钮区留白（用户认可构图）
+  const halfH2 = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * dist;
+  right.setFromMatrixColumn(camera.matrixWorld, 0);
+  up.setFromMatrixColumn(camera.matrixWorld, 1);
+  controls.target.addScaledVector(right, 0.16 * halfH2 * camera.aspect);
+  controls.target.addScaledVector(up, 0.09 * halfH2);
+  camera.position.copy(controls.target).addScaledVector(dir, dist);
+  camera.lookAt(controls.target);
+  controls.update();
   // 地台跟随：移到臂身（展示姿态）中心正下方
   const cxy = vbox.getCenter(new THREE.Vector3());
   floor.position.set(cxy.x, cxy.y, -0.001);

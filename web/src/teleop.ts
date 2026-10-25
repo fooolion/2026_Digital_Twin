@@ -21,10 +21,10 @@ mountNav('teleop');
 const MAPPINGS: { key: string; pad: 'L' | 'R' | '—'; to: string; desc: string }[] = [
   { key: 'W A S D / ↑←↓→', pad: 'L', to: '左摇杆', desc: '漫游移动（VR 视点）' },
   { key: 'Shift（按住）', pad: 'L', to: '握持键', desc: '抓取/握持物体' },
-  { key: 'Q / E', pad: 'L', to: 'X / A', desc: '功能键（镜像端对应 PICO 左手柄 A/X）' },
+  { key: 'Q', pad: 'L', to: 'X', desc: '菜单/功能键（PICO 4 左手柄 = X/Y）' },
+  { key: '空格 / E', pad: 'L', to: 'Y', desc: '模式切换（自动/手动）' },
   { key: '鼠标移动', pad: 'R', to: '右摇杆', desc: '目标点微调（视口相对位移）' },
-  { key: '鼠标左键 + 右键', pad: 'R', to: 'A + B', desc: '双键急停（≤5ms 切断动力）' },
-  { key: '空格', pad: 'R', to: 'Y', desc: '模式切换（自动/手动）' },
+  { key: '鼠标左键 + 右键', pad: 'R', to: 'A + B', desc: '双键急停（≤5ms 切断动力；PICO 4 右手柄 = A/B）' },
   { key: '长按「解锁」按钮 1s', pad: '—', to: '使能链路', desc: 'LOCKED → ARMED（对应长按右摇杆）' },
 ];
 
@@ -48,26 +48,29 @@ const input = {
   lStick: { x: 0, y: 0 },   // -1..1
   rStick: { x: 0, y: 0 },
   lGrip: false,
-  lX: false, lA: false,
-  rB: false, rA: false, rY: false, // rA=鼠标左键, rB=鼠标右键（急停双键）
+  lX: false, lY: false,     // 左柄 X/Y（PICO 4 真机布局）
+  rA: false, rB: false,     // 右柄 A/B（rA=鼠标左键, rB=鼠标右键，双键急停）
 };
 
 const keys = new Set<string>();
+const onInteractive = (e: Event): boolean =>
+  !!(e.target as HTMLElement)?.closest?.('button,a,input,textarea,select');
 addEventListener('keydown', (e) => {
-  if (e.repeat) return;
   const k = e.key.toLowerCase();
+  // 方向键驱动摇杆：别滚动页面；空格只防滚动、不杀焦点按钮的激活
+  if (k.startsWith('arrow') && !onInteractive(e)) e.preventDefault();
+  if (k === ' ' && !onInteractive(e)) e.preventDefault();
+  if (e.repeat) return;
   keys.add(k);
   if (k === 'q') input.lX = true;
-  if (k === 'e') input.lA = true;
-  if (k === ' ') { input.rY = true; e.preventDefault(); }
+  if (k === 'e' || k === ' ') input.lY = true;
   updateKeyboardStick();
 });
 addEventListener('keyup', (e) => {
   const k = e.key.toLowerCase();
   keys.delete(k);
   if (k === 'q') input.lX = false;
-  if (k === 'e') input.lA = false;
-  if (k === ' ') input.rY = false;
+  if (k === 'e' || k === ' ') input.lY = false;
   updateKeyboardStick();
 });
 function updateKeyboardStick(): void {
@@ -77,24 +80,52 @@ function updateKeyboardStick(): void {
   input.lGrip = keys.has('shift');
 }
 
+// 失焦清全部输入：按住 W 切窗口时 keyup 丢失，回来摇杆会卡在前进（sim 页拖拽同款坑）
+addEventListener('blur', () => {
+  keys.clear();
+  input.lStick.x = 0; input.lStick.y = 0;
+  input.lGrip = false; input.lX = false; input.lY = false;
+  input.rA = false; input.rB = false;
+  mouseNX = 0; mouseNY = 0;
+});
+
 // 鼠标 → 右摇杆：视口中心的相对位移，回中衰减（模拟摇杆自动回中）
 const view = document.querySelector('.tp-view') as HTMLElement;
 let mouseNX = 0, mouseNY = 0;
+// rect 缓存：mousemove 可达 125Hz+，每次 getBoundingClientRect 在布局脏时强制同步 reflow
+let viewRect = view.getBoundingClientRect();
+const refreshRect = (): void => { viewRect = view.getBoundingClientRect(); };
+addEventListener('resize', refreshRect);
+new ResizeObserver(refreshRect).observe(view);
 view.addEventListener('mousemove', (e) => {
-  const r = view.getBoundingClientRect();
-  mouseNX = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width - 0.5) * 2.4));
-  mouseNY = Math.max(-1, Math.min(1, -((e.clientY - r.top) / r.height - 0.5) * 2.4));
+  mouseNX = Math.max(-1, Math.min(1, ((e.clientX - viewRect.left) / viewRect.width - 0.5) * 2.4));
+  mouseNY = Math.max(-1, Math.min(1, -((e.clientY - viewRect.top) / viewRect.height - 0.5) * 2.4));
 });
 view.addEventListener('mouseleave', () => { mouseNX = 0; mouseNY = 0; });
+// 按键状态用 mouse/mousedown（Pointer Events 规范：鼠标按住期间按第二个键只派发 mousedown，
+// 不派发第二个 pointerdown——双键急停的"第二键"必须靠 mousedown 才收得到）；
+// pointerdown 仅负责 setPointerCapture（键在视口外释放也能收到 up，防陈旧态）与触屏双指。
+view.addEventListener('pointerdown', (e) => {
+  try { view.setPointerCapture(e.pointerId); } catch { /* 忽略 */ }
+  if (e.pointerType !== 'mouse') {
+    // 触屏：每指一个 pointerdown，主指=A 副指=B（双指同按即 A+B）
+    if (e.isPrimary) input.rA = true; else input.rB = true;
+    checkEstopCombo();
+  }
+});
 view.addEventListener('mousedown', (e) => {
   if (e.button === 0) input.rA = true;
   if (e.button === 2) input.rB = true;
   checkEstopCombo();
 });
-addEventListener('mouseup', (e) => {
+view.addEventListener('mouseup', (e) => {
   if (e.button === 0) input.rA = false;
   if (e.button === 2) input.rB = false;
 });
+view.addEventListener('pointerup', (e) => {
+  if (e.pointerType !== 'mouse') { if (e.isPrimary) input.rA = false; else input.rB = false; }
+});
+view.addEventListener('pointercancel', () => { input.rA = false; input.rB = false; });
 view.addEventListener('contextmenu', (e) => e.preventDefault()); // 右键是 B 键，别弹菜单
 
 /* ================= 安全联锁状态机（三级防护） ================= */
@@ -110,10 +141,11 @@ const estopBtn = document.getElementById('tp-estop') as HTMLElement;
 
 function setLock(s: LockState): void {
   lock = s;
+  // 灯色语义：LOCKED=琥珀（未就绪警示）；ESTOP=红闪（最高警示等级，红钮本身恒红）
   const conf: Record<LockState, [string, string, string, string]> = {
-    LOCKED: ['lamp-alarm', 'LOCKED · 闭锁', '上电默认闭锁，禁止一切下行指令', 'rgba(255,77,79,.5)'],
+    LOCKED: ['lamp-warn', 'LOCKED · 闭锁', '上电默认闭锁，禁止一切下行指令', 'rgba(255,180,84,.4)'],
     ARMED: ['', 'ARMED · 已使能', '下行指令通道开放（P5 桥接后生效）', 'rgba(46,229,132,.5)'],
-    ESTOP: ['lamp-warn', 'E-STOP · 已急停', '双键急停已触发，长按解锁前保持切断', 'rgba(255,180,84,.6)'],
+    ESTOP: ['lamp-alarm', 'E-STOP · 已急停', '双键急停已触发，长按复位前保持切断', 'rgba(255,77,79,.55)'],
   };
   const [lamp, name, desc, glow] = conf[s];
   lockLamp.className = `lamp ${lamp}`;
@@ -122,31 +154,48 @@ function setLock(s: LockState): void {
   (document.getElementById('lock-card') as HTMLElement).style.setProperty('--lock-glow', glow);
   holdBtn.hidden = s === 'ARMED';
   estopBtn.hidden = s !== 'ARMED';
+  holdBtn.querySelector('.hold-label')!.textContent = s === 'ESTOP' ? '长按 1.0s 复位急停' : '长按 1.0s 解锁';
 }
 
 // 长按解锁（pointer 事件，兼容触屏）
 let holdT0 = 0;
 const HOLD_MS = 1000;
 let holdRaf = 0;
+let holding = false; // 多指/多输入源哨兵：防两条 rAF 链互相覆盖导致松手后仍解锁
+function holdStart(): void {
+  if (holding) return;
+  holding = true;
+  holdT0 = performance.now();
+  holdRaf = requestAnimationFrame(holdStep);
+}
 function holdStep(): void {
+  if (!holding) return; // 孤儿链自杀
   const held = performance.now() - holdT0;
   holdFill.style.width = `${Math.min(100, (held / HOLD_MS) * 100)}%`;
   if (held >= HOLD_MS) {
+    // 先记 prevState 再 setLock（setLock 后 lock 恒为新值，后判必错）
+    const from = lock;
     setLock('ARMED');
-    logEvent(lock === 'ESTOP' ? '急停复位 → ARMED' : '解锁 → ARMED');
+    logEvent(from === 'ESTOP' ? '急停复位 → ARMED' : '解锁 → ARMED');
     toast('已使能（ARMED）· 下行链路 P5 接入后生效');
     holdFill.style.width = '0%';
+    checkEstopCombo(); // 兜底：若 A/B 键此刻已按住，ARMED 瞬间立即复查触发
     return;
   }
   holdRaf = requestAnimationFrame(holdStep);
 }
-holdBtn.addEventListener('pointerdown', () => {
-  holdT0 = performance.now();
-  holdRaf = requestAnimationFrame(holdStep);
-});
-const holdEnd = (): void => { cancelAnimationFrame(holdRaf); holdFill.style.width = '0%'; };
+holdBtn.addEventListener('pointerdown', holdStart);
+const holdEnd = (): void => { holding = false; cancelAnimationFrame(holdRaf); holdFill.style.width = '0%'; };
 holdBtn.addEventListener('pointerup', holdEnd);
 holdBtn.addEventListener('pointerleave', holdEnd);
+holdBtn.addEventListener('pointercancel', holdEnd);
+// 键盘长按路径（Enter/Space 蓄力；按钮聚焦时 Space 不再被全局 preventDefault 杀掉）
+holdBtn.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) holdStart();
+});
+holdBtn.addEventListener('keyup', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') holdEnd();
+});
 
 // A+B 双键急停（鼠标双键同按）
 function checkEstopCombo(): void {
@@ -180,6 +229,10 @@ function logEvent(msg: string): void {
 const lThumb = document.getElementById('l-thumb')!;
 const rThumb = document.getElementById('r-thumb')!;
 const padIOs = { l: document.getElementById('l-io')!, r: document.getElementById('r-io')! };
+const btnEls = {
+  lGrip: document.getElementById('l-grip')!, lX: document.getElementById('l-x')!, lY: document.getElementById('l-y')!,
+  rA: document.getElementById('r-a')!, rB: document.getElementById('r-b')!,
+};
 const STICK_R = 8.5; // 摇杆头可移动半径（SVG 单位）
 
 function setBtn(el: HTMLElement, on: boolean): void {
@@ -187,32 +240,30 @@ function setBtn(el: HTMLElement, on: boolean): void {
 }
 let lastRStick = { x: 0, y: 0 };
 
+// DOM 写入去抖：空闲帧不再全量写 textContent/transform（每帧写必脏布局）
+let lastLOutput = '', lastROutput = '', lastLTf = '', lastRTf = '';
+
 function frame(): void {
   // 右摇杆：鼠标位置向目标平滑（回中由 mouseleave 置 0 驱动）
   lastRStick.x += (mouseNX - lastRStick.x) * 0.25;
   lastRStick.y += (mouseNY - lastRStick.y) * 0.25;
   input.rStick.x = lastRStick.x; input.rStick.y = lastRStick.y;
 
-  lThumb.setAttribute('transform', `translate(${input.lStick.x * STICK_R} ${-input.lStick.y * STICK_R})`);
-  rThumb.setAttribute('transform', `translate(${input.rStick.x * STICK_R} ${-input.rStick.y * STICK_R})`);
-  setBtn(document.getElementById('l-grip')!, input.lGrip);
-  setBtn(document.getElementById('l-x')!, input.lX);
-  setBtn(document.getElementById('l-a')!, input.lA);
-  setBtn(document.getElementById('r-b')!, input.rB);
-  setBtn(document.getElementById('r-y')!, input.rY);
-  // 右手柄 A 圈（=鼠标左键）标注在 io 行；B 按钮 on 态由 rB
+  const lTf = 'translate(' + (input.lStick.x * STICK_R).toFixed(2) + ' ' + (-input.lStick.y * STICK_R).toFixed(2) + ')';
+  const rTf = 'translate(' + (input.rStick.x * STICK_R).toFixed(2) + ' ' + (-input.rStick.y * STICK_R).toFixed(2) + ')';
+  if (lTf !== lastLTf) { lThumb.setAttribute('transform', lTf); lastLTf = lTf; }
+  if (rTf !== lastRTf) { rThumb.setAttribute('transform', rTf); lastRTf = rTf; }
+  setBtn(btnEls.lGrip, input.lGrip);
+  setBtn(btnEls.lX, input.lX);
+  setBtn(btnEls.lY, input.lY);
+  setBtn(btnEls.rA, input.rA);
+  setBtn(btnEls.rB, input.rB);
 
-  const fmt = (v: { x: number; y: number }): string => `(${v.x.toFixed(1)}, ${v.y.toFixed(1)})`;
-  padIOs.l.textContent = [
-    `摇杆 ${fmt(input.lStick)}`,
-    input.lGrip ? '握持●' : '握持—',
-    input.lX ? 'X●' : 'X—', input.lA ? 'A●' : 'A—',
-  ].join('  ');
-  padIOs.r.textContent = [
-    `摇杆 ${fmt(input.rStick)}`,
-    input.rA ? 'A●' : 'A—', input.rB ? 'B●' : 'B—',
-    input.rY ? 'Y●' : 'Y—',
-  ].join('  ');
+  const fmt = (v: { x: number; y: number }): string => '(' + v.x.toFixed(1) + ',' + v.y.toFixed(1) + ')';
+  const lOut = '杆' + fmt(input.lStick) + ' ' + (input.lGrip ? '握●' : '握—') + ' ' + (input.lX ? 'X●' : 'X—') + ' ' + (input.lY ? 'Y●' : 'Y—');
+  const rOut = '杆' + fmt(input.rStick) + ' ' + (input.rA ? 'A●' : 'A—') + ' ' + (input.rB ? 'B●' : 'B—');
+  if (lOut !== lastLOutput) { padIOs.l.textContent = lOut; lastLOutput = lOut; }
+  if (rOut !== lastROutput) { padIOs.r.textContent = rOut; lastROutput = rOut; }
 
   requestAnimationFrame(frame);
 }

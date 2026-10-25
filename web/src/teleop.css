@@ -27,6 +27,7 @@
   padding: 11px 0; border-radius: 4px; font: inherit; font-size: 13px; color: #dfe7f3;
   background: rgba(0, 212, 255, 0.07); border: 1px solid rgba(0, 212, 255, 0.35);
   transition: border-color .15s ease;
+  touch-action: none; /* 长按期间手指微滑别被浏览器滚动手势接管 */
 }
 .tp-hold-btn:hover { border-color: rgba(0, 212, 255, 0.7); }
 .hold-fill {
@@ -71,7 +72,7 @@
 .tp-vr-hint span { font-size: 11px; color: rgba(255, 255, 255, 0.35); }
 
 /* 手柄（SVG 驱动；激活态由 .on 类控制） */
-.tp-pad { position: absolute; bottom: 14px; z-index: 2; width: 132px; text-align: center; }
+.tp-pad { position: absolute; bottom: 14px; z-index: 2; width: 152px; text-align: center; } /* 152px：容纳 io 读数行 */
 .tp-pad-l { left: 18px; }
 .tp-pad-r { right: 18px; }
 .pad-name {
@@ -80,7 +81,7 @@
 }
 .pad-svg { width: 100%; display: block; filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.5)); }
 .pad-io {
-  margin-top: 4px; font-size: 9.5px; color: rgba(255, 255, 255, 0.45);
+  margin-top: 4px; font-size: 9px; color: rgba(255, 255, 255, 0.45);
   font-family: 'JetBrains Mono', Consolas, ui-monospace, monospace; line-height: 1.5;
   white-space: pre;
 }

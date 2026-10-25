@@ -196,7 +196,9 @@ document.getElementById('fs-btn')!.addEventListener('click', () => {
 /* ===== P5-E：接桥——上行 telemetry 驱动 ECharts 实时曲线；无桥时保持滚动演示 ===== */
 let feedReal: ((j: number[]) => void) | null = null; // 桥在线时由下方闭包注入；离线回落演示数据
 
+let wsDownFlag = false; // 刷新器读的桥状态（wsStat 同步写入）
 function wsStat(lamp: 'ok' | 'warn' | 'off', state: string): void {
+  wsDownFlag = lamp === 'off';
   const i = STATS.findIndex((s) => s.probe === 'ws');
   if (i >= 0) {
     STATS[i] = { ...STATS[i], lamp, state };
@@ -279,6 +281,7 @@ void (async () => {
   });
 
   // feedReal：桥在线时注入真数据（realMode 置位后演示步进停、窗口清零重来）
+  let lastRealTs = 0; // 最后一帧真数据的时刻（断线回落判据）
   feedReal = (j: number[]): void => {
     if (!realMode) {
       realMode = true;
@@ -287,6 +290,7 @@ void (async () => {
       const cap = document.getElementById('trend-src');
       if (cap) cap.textContent = '（实时遥测 · 来自 PC 桥）';
     }
+    lastRealTs = performance.now();
     tick += 0.1;
     labels.push(tick.toFixed(1));
     if (labels.length > WIN) labels.shift();
@@ -296,11 +300,17 @@ void (async () => {
     }
   };
 
-  // 滚动刷新（200ms 局部 setOption；真流模式下只刷视图不产数据）
+  // 滚动刷新（200ms 局部 setOption；真流模式只刷视图；断线回落演示——冻结曲线+无提示是死角）
   let timer = 0;
   const start = (): void => {
     window.clearInterval(timer);
     timer = window.setInterval(() => {
+      // 断线回落：曾走过真流、桥已报断、真帧停更 >2s → 回演示（数据保留当前真流尾巴接着滚）
+      if (realMode && wsDownFlag && performance.now() - lastRealTs > 2000) {
+        realMode = false;
+        const cap = document.getElementById('trend-src');
+        if (cap) cap.textContent = '（演示数据 · 实时流已断开）';
+      }
       if (!realMode) demoStep();
       chart.setOption({ xAxis: { data: labels.slice() }, series: series.map((s) => ({ data: s.data.slice() })) });
     }, 200);

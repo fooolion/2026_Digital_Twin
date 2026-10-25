@@ -187,6 +187,7 @@ void (async () => {
         toast('链路断开 · 已自动闭锁');
       }
     },
+    () => bridgeStat('ok', '已连接 · ARMED 时 30Hz 下行'), // welcome 收到才转绿
   );
   if (bridgeWs) bridgeStat('ok', '已连接 · ARMED 时 30Hz 下行');
 })();

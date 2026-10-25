@@ -111,8 +111,10 @@ class Hub:
         async with self._lock:
             self.members[ws] = {"role": role, "joined_ts": time.time()}
         await ws.send_json({"type": "welcome", "role": role, "clients": len(self.members)})
-        if self.latest is not None and time.time() - self.latest.get("ts", 0) < 600:
-            await ws.send_json(self.latest)  # 补发最近状态（>10 分钟视为过期，不发）
+        # 补发最近状态：仅 input（teleop 页预热语义）。telemetry 不补发——
+        # 陈旧遥测会被监控页 feedReal 当真流首帧，锁死 realMode 成"空白假实时图"
+        if self.latest is not None and self.latest.get("src") == "input"                 and time.time() - self.latest.get("ts", 0) < 600:
+            await ws.send_json(self.latest)
 
     async def leave(self, ws: WebSocket) -> None:
         async with self._lock:

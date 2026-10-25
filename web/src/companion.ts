@@ -32,8 +32,9 @@ export async function probeCompanion(): Promise<CompanionHealth | null> {
 
 /** 连接 WS 桥（P5-D 遥操作下行用；骨架阶段只做 hello+收 state 打日志验证） */
 export function connectBridge(
-  onState: (payload: unknown, src: string) => void,
-  onDown?: (reason: string) => void, // 连接失败/关闭回调（P5-D 接入时做重连）
+  onState: (payload: unknown, src: string, ts: number) => void,
+  onDown?: (reason: string) => void, // 连接失败/关闭回调（调用方可做重连）
+  onUp?: () => void,                 // 握手完成（welcome 收到）——状态灯"转绿"应等此回调
 ): WebSocket | null {
   try {
     // 探测与桥共用同一 base（改端口只动 COMPANION_BASE）
@@ -41,8 +42,9 @@ export function connectBridge(
     ws.addEventListener('open', () => ws.send(JSON.stringify({ type: 'hello', role: 'web' })));
     ws.addEventListener('message', (e) => {
       try {
-        const msg = JSON.parse(e.data as string) as { type: string; src?: string; payload?: unknown };
-        if (msg.type === 'state') onState(msg.payload, msg.src ?? '');
+        const msg = JSON.parse(e.data as string) as { type: string; src?: string; payload?: unknown; ts?: number };
+        if (msg.type === 'welcome') onUp?.();
+        if (msg.type === 'state') onState(msg.payload, msg.src ?? '', msg.ts ?? Date.now() / 1000);
       } catch { /* 非 JSON 忽略 */ }
     });
     ws.addEventListener('close', () => onDown?.('closed'));

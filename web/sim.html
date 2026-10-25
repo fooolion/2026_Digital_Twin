@@ -4,41 +4,61 @@
     <meta charset="UTF-8" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232ee584'/%3E%3C/svg%3E" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>仿真 · 报废电池拆解数字孪生</title>
+    <title>仿真规划 · 报废电池拆解数字孪生</title>
     <style>
       :root { color-scheme: dark; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body { height: 100%; overflow: hidden; background: #0b0e14; }
+      html, body { height: 100%; overflow: hidden; background: #0a1220; }
       body { font-family: 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif; }
       canvas { display: block; }
       #hud, #tip { pointer-events: none; } /* 覆盖层不拦截指针，避免形成交互死区 */
       #hud {
         position: fixed; top: 72px; left: 16px; z-index: 10; /* 72 = 导航高 56 + 16 */
-        padding: 12px 16px; border-radius: 12px;
-        background: rgba(17, 24, 39, 0.55); backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 12px 16px 12px 18px; border-radius: 4px;
+        background: linear-gradient(180deg, rgba(13, 42, 79, 0.85), rgba(10, 26, 47, 0.55));
+        backdrop-filter: blur(6px);
+        border: 1px solid rgba(0, 212, 255, 0.28);
+        box-shadow: 0 0 14px rgba(0, 212, 255, 0.10), inset 0 0 22px rgba(0, 60, 120, 0.18);
         color: #e5e7eb; font-size: 13px; line-height: 1.6;
       }
-      #hud h1 { font-size: 14px; font-weight: 600; color: #93c5fd; margin-bottom: 2px; }
+      /* 四角 HUD 括号（复用 theme.css hud-panel 的实现） */
+      #hud::before, #hud::after {
+        content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 4px;
+      }
+      #hud::before {
+        background:
+          linear-gradient(#00d4ff, #00d4ff) left 5px top 5px / 10px 2px,
+          linear-gradient(#00d4ff, #00d4ff) left 5px top 5px / 2px 10px,
+          linear-gradient(#00d4ff, #00d4ff) right 5px bottom 5px / 10px 2px,
+          linear-gradient(#00d4ff, #00d4ff) right 5px bottom 5px / 2px 10px;
+        background-repeat: no-repeat;
+      }
+      #hud::after {
+        background:
+          linear-gradient(#00d4ff, #00d4ff) right 5px top 5px / 10px 2px,
+          linear-gradient(#00d4ff, #00d4ff) right 5px top 5px / 2px 10px,
+          linear-gradient(#00d4ff, #00d4ff) left 5px bottom 5px / 10px 2px,
+          linear-gradient(#00d4ff, #00d4ff) left 5px bottom 5px / 2px 10px;
+        background-repeat: no-repeat;
+      }
+      #hud h1 { font-size: 14px; font-weight: 600; color: #00d4ff; letter-spacing: .04em; margin-bottom: 2px; }
       #status { color: #9ca3af; }
       #ikerr { color: #30ff90; }
       #tip {
         position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
-        color: #64748b; font-size: 12px;
+        color: #5d7392; font-size: 12px; letter-spacing: .03em;
       }
       /* ===== 关节控制面板（玻璃拟态：blur16 + 1px 半透明边框 + 绿色强调）===== */
       :root { --jp-acc: #2ee584; --jp-acc-warn: #ffb454; }
       #jpanel {
         position: fixed; right: 16px; top: 50%; transform: translateY(-50%);
         width: 264px; max-height: 92vh; overflow-y: auto; z-index: 10;
-        padding: 16px 16px 14px; border-radius: 16px;
-        background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0) 110px),
-          rgba(15, 20, 30, 0.62);
-        backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.09);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-        scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.14) transparent;
+        padding: 16px 16px 14px; border-radius: 6px;
+        background: linear-gradient(180deg, rgba(13, 42, 79, 0.88), rgba(10, 26, 47, 0.78));
+        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(0, 212, 255, 0.26);
+        box-shadow: 0 0 16px rgba(0, 212, 255, 0.08), 0 12px 40px rgba(0, 0, 0, 0.35), inset 0 0 24px rgba(0, 60, 120, 0.15);
+        scrollbar-width: thin; scrollbar-color: rgba(0,212,255,.20) transparent;
         animation: jp-in .4s cubic-bezier(.22, 1, .36, 1);
       }
       @keyframes jp-in {
@@ -70,8 +90,8 @@
         font-size: 13px; font-weight: 600; letter-spacing: .04em; color: #dfe7f3;
       }
       .jp-title::before {
-        content: ''; width: 3px; height: 14px; border-radius: 2px;
-        background: linear-gradient(180deg, #59ffb0, #2ee584);
+        content: ''; width: 3px; height: 14px; border-radius: 1px;
+        background: #00d4ff; box-shadow: 0 0 8px rgba(0, 212, 255, 0.6);
       }
       .jp-mode {
         display: inline-flex; align-items: center; gap: 5px;
@@ -161,7 +181,7 @@
   <body>
     <header id="site-nav"></header>
     <div id="hud">
-      <h1>ReBot B601-DM · 浏览器 MuJoCo 验证原型</h1>
+      <h1>仿真规划 · ReBot B601-DM</h1>
       <div id="status">初始化…</div>
       <div id="ikerr"></div>
     </div>

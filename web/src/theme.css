@@ -2,13 +2,18 @@
 
 /* ===== 全站设计令牌（与 sim 面板 .jp-* 一致的视觉语言）===== */
 @theme {
-  --color-ink: #0b0e14;      /* 页面底色 */
-  --color-ink2: #0f141e;     /* 面板底色 */
-  --color-acc: #2ee584;      /* 强调绿 */
+  --color-ink: #0a1220;       /* 页面底色（工业深蓝，631 法则的 60%） */
+  --color-ink2: #0e1c33;      /* 面板底色 */
+  --color-acc: #2ee584;       /* 在线/成功绿（辅助色，仿真在线态） */
   --color-accsoft: #7df0bd;
-  --color-warn: #ffb454;     /* 琥珀（复位/手动） */
-  --color-fog: #8fa0b5;      /* 次级文本 */
-  --color-mist: #dfe7f3;     /* 主文本 */
+  --color-warn: #ffb454;      /* 琥珀（复位/手动/警告） */
+  --color-fog: #8fa0b5;       /* 次级文本 */
+  --color-mist: #dfe7f3;      /* 主文本 */
+  /* --- 工业大屏色板（2026-10-25 R1 新增，HUD 语言） --- */
+  --color-hud: #2e8bff;       /* 主色·科技蓝（边框/选中态/图表主系列） */
+  --color-hudglow: #00d4ff;   /* 强调·青（发光/HUD 角标/KPI 数字） */
+  --color-alarm: #ff4d4f;     /* 告警红（急停/超限，配闪烁） */
+  --color-hudpanel: rgba(13, 42, 79, 0.82); /* HUD 面板半透明底 */
 }
 
 html { color-scheme: dark; scroll-behavior: smooth; }
@@ -17,6 +22,86 @@ body {
   color: var(--color-mist);
   font-family: 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
 }
+
+/* ===== 工业大屏 HUD 原语（2026-10-25 R1；供总览驾驶舱/监控页/仿真页套壳） ===== */
+
+/* HUD 面板：半透明渐变底 + 发光边框 + 四角括号（纯 CSS，无图片） */
+.hud-panel {
+  position: relative;
+  background: linear-gradient(180deg, rgba(13, 42, 79, 0.85), rgba(10, 26, 47, 0.55));
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(0, 212, 255, 0.28);
+  box-shadow: 0 0 14px rgba(0, 212, 255, 0.10), inset 0 0 22px rgba(0, 60, 120, 0.18);
+  border-radius: 4px;
+}
+.hud-panel::before, .hud-panel::after {
+  content: ""; position: absolute; width: 100%; height: 100%;
+  top: 0; left: 0; pointer-events: none; border-radius: 4px;
+}
+/* 四角括号：每个伪元素画对角两角（横线+竖线各一） */
+.hud-panel::before {
+  background:
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 6px top 6px / 12px 2px,
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 6px top 6px / 2px 12px,
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 6px bottom 6px / 12px 2px,
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 6px bottom 6px / 2px 12px;
+  background-repeat: no-repeat;
+}
+.hud-panel::after {
+  background:
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 6px top 6px / 12px 2px,
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 6px top 6px / 2px 12px,
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 6px bottom 6px / 12px 2px,
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 6px bottom 6px / 2px 12px;
+  background-repeat: no-repeat;
+}
+
+/* 面板标题条：左侧竖条装饰（大屏惯例） */
+.hud-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; letter-spacing: .06em;
+  color: rgba(255, 255, 255, 0.92);
+}
+.hud-title::before {
+  content: ""; width: 3px; height: 14px; border-radius: 1px;
+  background: var(--color-hudglow); box-shadow: 0 0 8px rgba(0, 212, 255, 0.6);
+}
+
+/* KPI 大数字：等宽数字字体（大屏"高级感"最大单点） */
+.kpi-num {
+  font-family: 'JetBrains Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-hudglow);
+  text-shadow: 0 0 18px rgba(0, 212, 255, 0.45);
+}
+
+/* 状态灯：正常绿 / 警告琥珀 / 告警红闪烁 */
+.lamp {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  flex: none; background: var(--color-acc); box-shadow: 0 0 8px rgba(46, 229, 132, 0.8);
+}
+.lamp-warn { background: var(--color-warn); box-shadow: 0 0 8px rgba(255, 180, 84, 0.8); }
+.lamp-alarm { background: var(--color-alarm); box-shadow: 0 0 10px rgba(255, 77, 79, 0.9); animation: lamp-blink 1s steps(2, start) infinite; }
+@keyframes lamp-blink { 50% { opacity: .25; } }
+
+/* 切角容器（工业硬朗感，用于按钮/卡片变体） */
+.clip-corner { clip-path: polygon(0 8px, 8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%); }
+
+/* 步骤 tab：编号圆点 + 完成态（拓竹式工作流导航用） */
+.step-no {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 17px; height: 17px; border-radius: 50%; flex: none;
+  font-size: 10.5px; font-weight: 700; line-height: 1;
+  font-family: 'JetBrains Mono', Consolas, ui-monospace, monospace;
+  background: rgba(0, 212, 255, 0.14); color: var(--color-hudglow);
+  border: 1px solid rgba(0, 212, 255, 0.35);
+}
+a.active .step-no, .step-tab.active .step-no { background: var(--color-hudglow); color: #04121f; box-shadow: 0 0 10px rgba(0, 212, 255, 0.5); }
+
+/* 文字层级（大屏规范：白字三级透明度） */
+.t-hi { color: rgba(255, 255, 255, 1); }
+.t-mid { color: rgba(255, 255, 255, 0.75); }
+.t-lo { color: rgba(255, 255, 255, 0.45); }
 
 /* ===== 全页环境背景（固定层：网格 + 光斑随视口常驻，内容从上方滑过）===== */
 .ambient { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: var(--color-ink); }
@@ -62,7 +147,8 @@ body {
 }
 .site-nav .links { display: flex; gap: 4px; }
 .site-nav .links a {
-  position: relative; color: #9aa7ba; text-decoration: none;
+  position: relative; display: inline-flex; align-items: center; gap: 6px;
+  color: #9aa7ba; text-decoration: none;
   font-size: 13px; padding: 7px 13px; border-radius: 9px;
   transition: color .15s ease, background .15s ease;
 }

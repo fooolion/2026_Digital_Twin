@@ -10,6 +10,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: 'index.html',
+        about: 'about.html',
         live: 'live.html',
         sim: 'sim.html',
         teleop: 'teleop.html',

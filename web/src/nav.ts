@@ -1,14 +1,16 @@
 /**
  * 共享顶部导航：每个页面放 <header id="site-nav"></header>，再调用 mountNav(activeKey)。
- * 滚动时底色加深（.scrolled），当前页链接高亮。
+ * 2026-10-25 R2 重组：按指导老师工作流改为步骤式导航（总览/①零件库/②仿真规划/③遥操作/④运行监控/关于）。
+ * 文件名保持不变（sim/live/teleop/workshop）以兼容已发布的外链，仅导航文案与顺序变化。
  */
 
 const LINKS = [
-  { href: 'index.html', key: 'home', label: '首页' },
-  { href: 'live.html', key: 'live', label: '直播' },
-  { href: 'sim.html', key: 'sim', label: '仿真' },
-  { href: 'teleop.html', key: 'teleop', label: '遥操作' },
-  { href: 'workshop.html', key: 'workshop', label: '创意工坊' },
+  { href: 'index.html', key: 'home', label: '总览', no: null },
+  { href: 'workshop.html', key: 'workshop', label: '零件库', no: 1 },
+  { href: 'sim.html', key: 'sim', label: '仿真规划', no: 2 },
+  { href: 'teleop.html', key: 'teleop', label: '遥操作', no: 3 },
+  { href: 'live.html', key: 'live', label: '运行监控', no: 4 },
+  { href: 'about.html', key: 'about', label: '关于', no: null },
 ];
 
 export function mountNav(active: string): void {
@@ -18,7 +20,10 @@ export function mountNav(active: string): void {
     <nav class="site-nav">
       <a class="brand" href="index.html"><i></i>报废电池拆解数字孪生</a>
       <div class="links">
-        ${LINKS.map((l) => `<a href="${l.href}" class="${l.key === active ? 'active' : ''}">${l.label}</a>`).join('')}
+        ${LINKS.map((l) => {
+          const no = l.no !== null ? `<span class="step-no">${l.no}</span>` : '';
+          return `<a href="${l.href}" class="${l.key === active ? 'active' : ''}">${no}${l.label}</a>`;
+        }).join('')}
       </div>
       <a class="gh" href="https://github.com/fooolion/2026_Digital_Twin" target="_blank" rel="noreferrer">GitHub ↗</a>
     </nav>`;

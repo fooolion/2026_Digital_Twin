@@ -6,7 +6,7 @@
  * Rev: R4 · 2026-10-25
  */
 import { mountNav, toast, renderStatList, type StatItem } from './nav';
-import { probeCompanion, COMPANION_BASE } from './companion';
+import { probeCompanion, COMPANION_BASE, connectBridge } from './companion';
 import { pullWhep } from './whep';
 import './theme.css';
 import './monitor.css';
@@ -14,10 +14,10 @@ import './monitor.css';
 mountNav('live');
 
 /* ===== 链路状态（数据驱动；P5 接入后改为轮询伴生服务） ===== */
-const STATS: (StatItem & { probe?: 'cams' | 'pico' })[] = [
+const STATS: (StatItem & { probe?: 'cams' | 'pico' | 'ws' })[] = [
   { name: 'PICO · Unity VR 串流', lamp: 'warn', state: '探测中…', probe: 'pico' },
   { name: '相机 A / 相机 B', lamp: 'warn', state: '探测中…', probe: 'cams' },
-  { name: 'WebSocket 桥', lamp: 'warn', state: '未部署（P5）' },
+  { name: 'WebSocket 桥', lamp: 'warn', state: '探测中…', probe: 'ws' },
   { name: '实体臂 B601-DM', lamp: 'off', state: '离线 · 未使能' },
 ];
 renderStatList(document.getElementById('mn-stats')!, STATS);
@@ -193,7 +193,39 @@ document.getElementById('fs-btn')!.addEventListener('click', () => {
   }
 });
 
-/* ===== 关节遥测趋势（ECharts · 滚动演示数据；P5 后换 WebSocket 实时流） ===== */
+/* ===== P5-E：接桥——上行 telemetry 驱动 ECharts 实时曲线；无桥时保持滚动演示 ===== */
+let feedReal: ((j: number[]) => void) | null = null; // 桥在线时由下方闭包注入；离线回落演示数据
+
+function wsStat(lamp: 'ok' | 'warn' | 'off', state: string): void {
+  const i = STATS.findIndex((s) => s.probe === 'ws');
+  if (i >= 0) {
+    STATS[i] = { ...STATS[i], lamp, state };
+    renderStatList(document.getElementById('mn-stats')!, STATS);
+  }
+}
+
+void (async () => {
+  const h = await probeCompanion();
+  if (!h?.ok) {
+    wsStat('warn', '未启动（演示模式）');
+    return;
+  }
+  connectBridge(
+    (payload, src) => {
+      // 上行 telemetry（pc 端发）→ 实时曲线注入
+      if (src === 'telemetry' && payload && typeof payload === 'object' && 'j' in payload) {
+        const j = (payload as { j: unknown }).j;
+        if (Array.isArray(j) && j.length >= 6 && j.every((v) => typeof v === 'number')) {
+          feedReal?.(j as number[]);
+        }
+      }
+    },
+    (reason) => wsStat('off', `已断开（${reason}）`),
+  );
+  wsStat('ok', '已连接 · 实时遥测');
+})();
+
+/* ===== 关节遥测趋势（ECharts：桥在线走实时流；离线滚动演示） ===== */
 void (async () => {
   const echarts = await import('echarts/core');
   const chartEl = document.getElementById('trend-chart')!;
@@ -203,9 +235,9 @@ void (async () => {
   echarts.use([LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
   const chart = echarts.init(chartEl, undefined, { renderer: 'canvas' });
 
-  // 演示数据：六关节相位错开的缓变正弦，滚动窗口模拟实时遥测
-  // （P5 后改为：WebSocket 推送 → push 进各 series data → setOption 局部更新）
+  // 滚动窗口：真流（feedReal 注入）与离线演示共用同一条管线（追加+滑窗+局部 setOption）
   const WIN = 120;
+  let realMode = false; // 桥注入第一帧后置真——演示步进立即停
   const state = Array.from({ length: 6 }, (_, j) => ({ phase: j * 1.1, amp: 18 - j * 2.2, k: 0.5 + j * 0.13 }));
   const data: number[][] = Array.from({ length: 6 }, () => []);
   const labels: string[] = [];
@@ -222,6 +254,7 @@ void (async () => {
     }
   };
   for (let i = 0; i < WIN; i++) step();
+  const demoStep = step; // 真流模式下间隔器只刷视图不产数据
 
   const series = data.map((d, j) => ({
     name: `J${j + 1}`,
@@ -245,12 +278,30 @@ void (async () => {
     series,
   });
 
-  // 滚动更新：追加 + 窗口滑动（局部 setOption + 快照数组，避免全量重建/引用比较跳过）
+  // feedReal：桥在线时注入真数据（realMode 置位后演示步进停、窗口清零重来）
+  feedReal = (j: number[]): void => {
+    if (!realMode) {
+      realMode = true;
+      data.forEach((d) => (d.length = 0));
+      labels.length = 0;
+      const cap = document.getElementById('trend-src');
+      if (cap) cap.textContent = '（实时遥测 · 来自 PC 桥）';
+    }
+    tick += 0.1;
+    labels.push(tick.toFixed(1));
+    if (labels.length > WIN) labels.shift();
+    for (let idx = 0; idx < 6; idx++) {
+      data[idx].push(+j[idx].toFixed(2));
+      if (data[idx].length > WIN) data[idx].shift();
+    }
+  };
+
+  // 滚动刷新（200ms 局部 setOption；真流模式下只刷视图不产数据）
   let timer = 0;
   const start = (): void => {
     window.clearInterval(timer);
     timer = window.setInterval(() => {
-      step();
+      if (!realMode) demoStep();
       chart.setOption({ xAxis: { data: labels.slice() }, series: series.map((s) => ({ data: s.data.slice() })) });
     }, 200);
   };

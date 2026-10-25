@@ -15,7 +15,7 @@
 .tp-card { padding: 16px 16px 14px; }
 
 /* ── 安全联锁卡 ── */
-.tp-lock-card { --lock-glow: rgba(255, 77, 79, .5); transition: box-shadow .3s ease; }
+.tp-lock-card { --lock-glow: rgba(255, 180, 84, .4); transition: box-shadow .3s ease; box-shadow: 0 0 16px var(--lock-glow); } /* 辉光随 setLock 切换（LOCKED 琥珀/ARMED 绿/ESTOP 红） */
 .tp-lock-card .hud-title::before { background: var(--color-alarm); box-shadow: 0 0 8px rgba(255, 77, 79, .6); }
 .tp-lock-card.armed .hud-title::before { background: var(--color-acc); box-shadow: 0 0 8px rgba(46, 229, 132, .6); }
 .lock-state { display: flex; align-items: center; gap: 10px; margin: 14px 0 6px; font-size: 15px; }
@@ -93,7 +93,7 @@
 .p-handle { fill: #1a2a44; stroke: rgba(255, 255, 255, 0.12); }
 .p-btn { fill: #223550; stroke: rgba(255, 255, 255, 0.2); transition: fill .08s ease; }
 .p-btn.on { fill: #2ee584; }
-.p-btn.on + .p-btntxt, .p-btn.on ~ .p-btntxt { fill: #06281a; }
+.p-btn.on + .p-btntxt { fill: #06281a; } /* 只用 +：~ 会把后续兄弟字母全部串色 */
 .p-btntxt { fill: #9fb2cc; font-size: 8px; text-anchor: middle; font-family: 'JetBrains Mono', monospace; pointer-events: none; }
 .p-grip { fill: #223550; stroke: rgba(255, 255, 255, 0.2); transition: fill .08s ease; }
 .p-grip.on { fill: #ffb454; }

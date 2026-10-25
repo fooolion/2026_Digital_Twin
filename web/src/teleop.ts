@@ -5,10 +5,10 @@
  * 叠加三级防护状态机（LOCKED → 长按解锁 → ARMED ⇄ E-STOP）。
  * 当前为纯前端镜像（无下行链路）；P5 伴生服务接入后，输入状态经 WebSocket 直通 PC 权威端。
  *
- * 键鼠映射（数据驱动，改 MAPPINGS 即全站生效）：
- *   左手柄（漫游）：WASD/方向键→摇杆，Shift→握持，Q→X，E→A
- *   右手柄（操作）：鼠标位移→摇杆（视口相对），左键→A 急停半键，右键→B 急停半键，空格→Y
- *   A+B 同按 = 急停（映射 PICO 双键急停）；长按按钮 1s = 解锁使能
+ * 键鼠映射（数据驱动，改 MAPPINGS 即全站生效；PICO 4 真机布局：左 X/Y 右 A/B）：
+ *   左手柄（漫游）：WASD/方向键→摇杆，Shift→握持，Q→X，空格/E→Y
+ *   右手柄（操作）：鼠标位移→摇杆（视口相对），左键→A、右键→B（A+B 同按=双键急停）
+ *   长按「解锁」按钮 1s = 解锁使能（LOCKED→ARMED；ESTOP 态为复位）
  */
 import { mountNav, toast } from './nav';
 import './theme.css';
@@ -24,7 +24,8 @@ const MAPPINGS: { key: string; pad: 'L' | 'R' | '—'; to: string; desc: string 
   { key: 'Q', pad: 'L', to: 'X', desc: '菜单/功能键（PICO 4 左手柄 = X/Y）' },
   { key: '空格 / E', pad: 'L', to: 'Y', desc: '模式切换（自动/手动）' },
   { key: '鼠标移动', pad: 'R', to: '右摇杆', desc: '目标点微调（视口相对位移）' },
-  { key: '鼠标左键 + 右键', pad: 'R', to: 'A + B', desc: '双键急停（≤5ms 切断动力；PICO 4 右手柄 = A/B）' },
+  { key: '鼠标左键 / 右键', pad: 'R', to: 'A / B', desc: '单键功能位（PICO 4 右手柄 = A/B；触屏双指同按等价）' },
+  { key: '鼠标左键 + 右键', pad: 'R', to: 'A + B 同按', desc: '双键急停（≤5ms 切断动力）' },
   { key: '长按「解锁」按钮 1s', pad: '—', to: '使能链路', desc: 'LOCKED → ARMED（对应长按右摇杆）' },
 ];
 
@@ -61,6 +62,7 @@ addEventListener('keydown', (e) => {
   if (k.startsWith('arrow') && !onInteractive(e)) e.preventDefault();
   if (k === ' ' && !onInteractive(e)) e.preventDefault();
   if (e.repeat) return;
+  if (onInteractive(e)) return; // 焦点在按钮/输入上：按键属于控件操作语境，不做手柄镜像
   keys.add(k);
   if (k === 'q') input.lX = true;
   if (k === 'e' || k === ' ') input.lY = true;
@@ -80,8 +82,10 @@ function updateKeyboardStick(): void {
   input.lGrip = keys.has('shift');
 }
 
-// 失焦清全部输入：按住 W 切窗口时 keyup 丢失，回来摇杆会卡在前进（sim 页拖拽同款坑）
+// 失焦清全部输入：按住 W 切窗口时 keyup 丢失，回来摇杆会卡在前进（sim 页拖拽同款坑）；
+// 蓄力长按同理——rAF 暂停而时钟照走，切回会"瞬满解锁"，失焦即视为放弃
 addEventListener('blur', () => {
+  holdEnd();
   keys.clear();
   input.lStick.x = 0; input.lStick.y = 0;
   input.lGrip = false; input.lX = false; input.lY = false;
@@ -97,7 +101,9 @@ let viewRect = view.getBoundingClientRect();
 const refreshRect = (): void => { viewRect = view.getBoundingClientRect(); };
 addEventListener('resize', refreshRect);
 new ResizeObserver(refreshRect).observe(view);
+let lastPointerType = 'mouse';
 view.addEventListener('mousemove', (e) => {
+  if (lastPointerType === 'touch') return; // 触屏 tap 补发的兼容 mousemove 会卡死右摇杆偏转
   mouseNX = Math.max(-1, Math.min(1, ((e.clientX - viewRect.left) / viewRect.width - 0.5) * 2.4));
   mouseNY = Math.max(-1, Math.min(1, -((e.clientY - viewRect.top) / viewRect.height - 0.5) * 2.4));
 });
@@ -106,6 +112,7 @@ view.addEventListener('mouseleave', () => { mouseNX = 0; mouseNY = 0; });
 // 不派发第二个 pointerdown——双键急停的"第二键"必须靠 mousedown 才收得到）；
 // pointerdown 仅负责 setPointerCapture（键在视口外释放也能收到 up，防陈旧态）与触屏双指。
 view.addEventListener('pointerdown', (e) => {
+  lastPointerType = e.pointerType;
   try { view.setPointerCapture(e.pointerId); } catch { /* 忽略 */ }
   if (e.pointerType !== 'mouse') {
     // 触屏：每指一个 pointerdown，主指=A 副指=B（双指同按即 A+B）
@@ -114,11 +121,13 @@ view.addEventListener('pointerdown', (e) => {
   }
 });
 view.addEventListener('mousedown', (e) => {
+  if (lastPointerType === 'touch') return; // 触屏兼容 mousedown 会双触发 rA
   if (e.button === 0) input.rA = true;
   if (e.button === 2) input.rB = true;
   checkEstopCombo();
 });
 view.addEventListener('mouseup', (e) => {
+  if (lastPointerType === 'touch') return;
   if (e.button === 0) input.rA = false;
   if (e.button === 2) input.rB = false;
 });
@@ -151,10 +160,13 @@ function setLock(s: LockState): void {
   lockLamp.className = `lamp ${lamp}`;
   lockName.textContent = name;
   lockDesc.textContent = desc;
-  (document.getElementById('lock-card') as HTMLElement).style.setProperty('--lock-glow', glow);
-  holdBtn.hidden = s === 'ARMED';
+  const card = document.getElementById('lock-card') as HTMLElement;
+  card.style.setProperty('--lock-glow', glow); // 卡片辉光（teleop.css box-shadow 消费）
+  card.classList.toggle('armed', s === 'ARMED'); // 标题竖条变绿（.tp-lock-card.armed）
+  holdBtn.hidden = false;
   estopBtn.hidden = s !== 'ARMED';
-  holdBtn.querySelector('.hold-label')!.textContent = s === 'ESTOP' ? '长按 1.0s 复位急停' : '长按 1.0s 解锁';
+  holdBtn.querySelector('.hold-label')!.textContent =
+    s === 'ESTOP' ? '长按 1.0s 复位急停' : s === 'ARMED' ? '点按重新闭锁' : '长按 1.0s 解锁';
 }
 
 // 长按解锁（pointer 事件，兼容触屏）
@@ -179,12 +191,24 @@ function holdStep(): void {
     logEvent(from === 'ESTOP' ? '急停复位 → ARMED' : '解锁 → ARMED');
     toast('已使能（ARMED）· 下行链路 P5 接入后生效');
     holdFill.style.width = '0%';
+    holding = false; // 成功即收（防极端的 up 丢失后 holding 卡 true）
+    estopBtn.focus({ preventScroll: true }); // 键盘路径：焦点从隐藏的解锁钮转移到急停钮
     checkEstopCombo(); // 兜底：若 A/B 键此刻已按住，ARMED 瞬间立即复查触发
     return;
   }
   holdRaf = requestAnimationFrame(holdStep);
 }
-holdBtn.addEventListener('pointerdown', holdStart);
+holdBtn.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return; // 右/中键不蓄力（也不弹菜单，见下）
+  if (lock === 'ARMED') { // ARMED 态复用为"点按闭锁"
+    setLock('LOCKED');
+    logEvent('手动闭锁 → LOCKED');
+    toast('已闭锁（LOCKED）');
+    return;
+  }
+  holdStart();
+});
+holdBtn.addEventListener('contextmenu', (e) => e.preventDefault());
 const holdEnd = (): void => { holding = false; cancelAnimationFrame(holdRaf); holdFill.style.width = '0%'; };
 holdBtn.addEventListener('pointerup', holdEnd);
 holdBtn.addEventListener('pointerleave', holdEnd);

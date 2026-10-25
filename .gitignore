@@ -53,3 +53,6 @@ desktop.ini
 /MujocoUnityRenderer/Assets/*.fbx.meta
 /MujocoUnityRenderer/Assets/Scenes/prefabs/battery.fbx
 /MujocoUnityRenderer/Assets/Scenes/prefabs/battery.fbx.meta
+
+# P5-C 预录视频（大文件不入库；放入 web/public/media/pico.mp4 即自动播放）
+web/public/media/*.mp4

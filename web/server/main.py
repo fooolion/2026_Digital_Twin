@@ -48,6 +48,13 @@ CAM_IDS = [int(x) for x in os.environ.get("COMPANION_CAMS", "1,2").split(",")]
 CAM_FPS = 15          # MJPEG 帧率上限（1080p JPEG q70 下单流约 1-2 MB/s，局域网够用）
 CAM_JPEG_QUALITY = 70
 
+# PICO 大屏（P5-C）：实时流走 MediaMTX 的 WHEP 端点（OBS 推流 → MediaMTX → 网页 WHEP 拉流，
+# 不经本服务转发）。环境变量 PICO_WHEP_URL 配置后 /api/stream 下发；空 = 未部署实时链路。
+# 例：PICO_WHEP_URL="http://192.168.1.100:8889/pico/whep"（MediaMTX WebRTC 默认端口 8889）
+PICO_WHEP_URL = os.environ.get("PICO_WHEP_URL", "")
+# 预录视频（调试期/老师认可的过渡形态）：约定文件 web/public/media/pico.mp4（build 后进 dist/media/）
+PICO_VIDEO = DIST / "media" / "pico.mp4"
+
 app = FastAPI(title="伴生服务 · 报废电池拆解数字孪生", version="0.1.0", docs_url=None, redoc_url=None, openapi_url=None)
 # CORS：dev 模式下前端跑在 5173，探测/连接 8800 为跨源——本机演示服务放开无风险
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -229,6 +236,16 @@ _CAMS = [CamStream(slot, dev) for slot, dev in enumerate(CAM_IDS)]
 @app.get("/api/cams")
 async def cams_status() -> dict:
     return {"cams": [{"slot": c.slot, "device": c.device, "online": c.online} for c in _CAMS]}
+
+
+@app.get("/api/stream")
+async def stream_config() -> dict:
+    """PICO 大屏流配置：前端按 whep > video > 占位 三层降级。"""
+    return {
+        "whep": PICO_WHEP_URL,                       # 实时流（MediaMTX WHEP）；空=未部署
+        "video": PICO_VIDEO.is_file(),               # 预录视频是否就位（dist/media/pico.mp4）
+        "video_url": "/2026_Digital_Twin/media/pico.mp4" if PICO_VIDEO.is_file() else None,
+    }
 
 
 @app.get("/cam/{slot}.mjpg")

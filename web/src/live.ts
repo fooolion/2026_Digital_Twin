@@ -7,19 +7,81 @@
  */
 import { mountNav, toast, renderStatList, type StatItem } from './nav';
 import { probeCompanion, COMPANION_BASE } from './companion';
+import { pullWhep } from './whep';
 import './theme.css';
 import './monitor.css';
 
 mountNav('live');
 
 /* ===== 链路状态（数据驱动；P5 接入后改为轮询伴生服务） ===== */
-const STATS: (StatItem & { probe?: 'cams' })[] = [
-  { name: 'PICO · Unity VR 串流', lamp: 'warn', state: '待接入' },
+const STATS: (StatItem & { probe?: 'cams' | 'pico' })[] = [
+  { name: 'PICO · Unity VR 串流', lamp: 'warn', state: '探测中…', probe: 'pico' },
   { name: '相机 A / 相机 B', lamp: 'warn', state: '探测中…', probe: 'cams' },
   { name: 'WebSocket 桥', lamp: 'warn', state: '未部署（P5）' },
   { name: '实体臂 B601-DM', lamp: 'off', state: '离线 · 未使能' },
 ];
 renderStatList(document.getElementById('mn-stats')!, STATS);
+
+/* ===== P5-C：PICO 大屏三层降级（WHEP 实时流 > 预录视频 > 占位层） ===== */
+const picoVideo = document.getElementById('pico-video') as HTMLVideoElement;
+const picoPh = document.getElementById('pico-ph')!;
+
+function picoState(lamp: 'ok' | 'warn' | 'off', state: string): void {
+  const i = STATS.findIndex((s) => s.probe === 'pico');
+  if (i >= 0) {
+    STATS[i] = { ...STATS[i], lamp, state };
+    renderStatList(document.getElementById('mn-stats')!, STATS);
+  }
+}
+
+function showPicoVideo(srcType: 'stream' | 'file'): void {
+  picoPh.style.display = 'none';
+  picoVideo.style.display = 'block';
+  void srcType;
+}
+
+void (async () => {
+  const h = await probeCompanion();
+  if (!h?.ok) {
+    picoState('warn', '未启动（演示模式）');
+    return;
+  }
+  let cfg: { whep: string; video: boolean; video_url: string | null } | null = null;
+  try {
+    cfg = await (await fetch(`${COMPANION_BASE}/api/stream`)).json();
+  } catch { /* 配置查询失败按占位处理 */ }
+
+  if (cfg?.whep) {
+    // ① 实时流（MediaMTX WHEP）
+    try {
+      const session = await pullWhep(cfg.whep, picoVideo);
+      showPicoVideo('stream');
+      picoState('ok', '实时流 · WebRTC');
+      session.pc.addEventListener('connectionstatechange', () => {
+        if (session.pc.connectionState === 'failed') {
+          picoState('off', '实时流中断');
+        }
+      });
+      return;
+    } catch {
+      // WHEP 失败（MediaMTX 未推流）→ 降级预录
+    }
+  }
+  if (cfg?.video && cfg.video_url) {
+    // ② 预录视频（老师认可的过渡形态；相对当前源——伴生服务同源 / Pages 部署时伴生服务不在则探不到）
+    picoVideo.src = cfg.video_url;
+    picoVideo.loop = true;
+    picoVideo.muted = true; // 自动播放策略要求静音
+    void picoVideo.play().catch(() => { /* 首次交互后恢复 */ });
+    showPicoVideo('file');
+    picoState('ok', '预录视频 · 循环播放');
+    return;
+  }
+  // ③ 占位层（文案更新为可操作的指引）
+  const hint = picoPh.querySelector('span');
+  if (hint) hint.textContent = cfg?.whep ? 'MediaMTX 未推流 · 请检查 OBS' : '放入 web/public/media/pico.mp4 或配置 PICO_WHEP_URL';
+  picoState('warn', '待接入（预录视频/实时流均未就位）');
+})();
 
 /* ===== P5-B：伴生服务在线 → 双摄像头 MJPEG 填 src + 状态灯；断流回退占位 ===== */
 const camImgs = [

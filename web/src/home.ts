@@ -83,8 +83,9 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 0, 0.24);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
-controls.minDistance = 0.5; controls.maxDistance = 2.4;
-controls.enablePan = false;
+controls.minDistance = 0.4; controls.maxDistance = 2.8;
+controls.enablePan = true; // 右键拖拽平移
+controls.maxPolarAngle = Math.PI * 0.55; // 允许略低于地平线，但别钻到地下
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // 灯光：环境 + 两盏方向光（工业视口常见的冷白打光）
@@ -107,6 +108,18 @@ scene.add(floor, grid);
 
 type UrdfRobot = { joints: Record<string, { setJointValue(v: number): boolean }> } & THREE.Object3D;
 let robot: UrdfRobot | null = null;
+
+// 演示摆动姿态方程（URDF 限位内；动画循环与自动取景共用）
+function setPose(rob: UrdfRobot, t: number): void {
+  rob.joints.joint1.setJointValue(Math.sin(t * 0.35) * 0.55);
+  rob.joints.joint2.setJointValue(-0.95 + Math.sin(t * 0.5) * 0.22);
+  rob.joints.joint3.setJointValue(-0.9 + Math.sin(t * 0.5 + 1.1) * 0.2);
+  rob.joints.joint4.setJointValue(0.2 + Math.sin(t * 0.7 + 2) * 0.12);
+  rob.joints.joint5.setJointValue(Math.sin(t * 0.45 + 0.5) * 0.3);
+  const grip = 0.5 + Math.sin(t * 0.9) * 0.5;
+  rob.joints.finger_left.setJointValue(grip * 0.02);   // [0, 0.05]
+  rob.joints.finger_right.setJointValue(-grip * 0.02); // [-0.05, 0]
+}
 
 // 加载覆盖层：说明 + 字节级进度条
 const loadMask = document.createElement('div');
@@ -140,7 +153,25 @@ void (async () => {
     loadMask.style.opacity = '0';
     window.setTimeout(() => loadMask.remove(), 550);
     scene.add(r);
-    (window as unknown as Record<string, unknown>).__cpRobot = r; // 调试句柄（现场检查用）
+    // 自动取景：按摆动包络取景——采样动画方程 4 个相位取并集包围盒，
+    // 使任意动画相位下臂都大致居中（URDF 零位是折叠态，不能按零位量）
+    requestAnimationFrame(() => {
+      const box = new THREE.Box3();
+      const tmp = new THREE.Box3();
+      for (const tk of [0, 1.6, 3.1, 4.7]) {
+        setPose(r, tk);
+        tmp.setFromObject(r);
+        box.union(tmp);
+      }
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      const radius = size.length() * 0.5;
+      const dist = Math.min(Math.max((radius / Math.sin(THREE.MathUtils.degToRad(camera.fov * 0.5))) * 1.3, 1.15), controls.maxDistance);
+      const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+      controls.target.copy(center);
+      camera.position.copy(center).addScaledVector(dir, dist);
+      controls.update();
+    });
     if (reduced) {
       // 静态展示姿态（与仿真零位一致的伸展）
       r.joints.joint1.setJointValue(0);
@@ -168,17 +199,7 @@ resize();
 
 const t0 = performance.now();
 renderer.setAnimationLoop(() => {
-  if (!reduced && robot) {
-    const t = (performance.now() - t0) / 1000;
-    robot.joints.joint1.setJointValue(Math.sin(t * 0.35) * 0.55);            // 底座回转
-    robot.joints.joint2.setJointValue(-0.95 + Math.sin(t * 0.5) * 0.22);     // 大臂俯仰
-    robot.joints.joint3.setJointValue(0.75 + Math.sin(t * 0.5 + 1.1) * 0.2); // 小臂俯仰
-    robot.joints.joint4.setJointValue(0.2 + Math.sin(t * 0.7 + 2) * 0.12);   // 腕部
-    robot.joints.joint5.setJointValue(Math.sin(t * 0.45 + 0.5) * 0.3);
-    const grip = 0.5 + Math.sin(t * 0.9) * 0.5;                              // 夹爪开合（0~0.02m 行程）
-    robot.joints.finger_left.setJointValue(grip * 0.02);
-    robot.joints.finger_right.setJointValue(grip * 0.02);
-  }
+  if (!reduced && robot) setPose(robot, (performance.now() - t0) / 1000);
   controls.update();
   renderer.render(scene, camera);
 });

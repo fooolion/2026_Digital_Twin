@@ -378,14 +378,14 @@
     <visual name="finger_left_carriage">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="../meshes/shared/colored_left_finger_carriage_grey.stl" />
+        <mesh filename="shared/colored_left_finger_carriage_grey.stl" />
       </geometry>
       <material name="gripper_carriage_grey" />
     </visual>
     <visual name="finger_left_travel_stop">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="../meshes/shared/colored_left_finger_travel_stop_yellow.stl" />
+        <mesh filename="shared/colored_left_finger_travel_stop_yellow.stl" />
       </geometry>
       <material name="gripper_seeed_yellow" />
     </visual>
@@ -421,14 +421,14 @@
     <visual name="finger_right_carriage">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="../meshes/shared/colored_right_finger_carriage_grey.stl" />
+        <mesh filename="shared/colored_right_finger_carriage_grey.stl" />
       </geometry>
       <material name="gripper_carriage_grey" />
     </visual>
     <visual name="finger_right_travel_stop">
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="../meshes/shared/colored_right_finger_travel_stop_yellow.stl" />
+        <mesh filename="shared/colored_right_finger_travel_stop_yellow.stl" />
       </geometry>
       <material name="gripper_seeed_yellow" />
     </visual>

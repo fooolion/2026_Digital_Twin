@@ -8,17 +8,18 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { mountNav, renderStatList, type StatItem } from './nav';
+import { probeCompanion } from './companion';
 import './theme.css';
 import './cockpit.css';
 
 /* ===== 配置区（数据驱动预留） ===== */
 
 // 系统链路状态：lamp = ok | warn | off
-const SYSTEM: (StatItem & { href: string })[] = [
+const SYSTEM: (StatItem & { href: string; probe?: 'companion' })[] = [
   { name: '仿真引擎（MuJoCo WASM）', lamp: 'ok', state: '在线', href: 'sim.html' },
   { name: 'PICO · Unity VR 链路', lamp: 'warn', state: '待接入（P5）', href: 'live.html' },
   { name: '实体机械臂 B601-DM', lamp: 'off', state: '离线 · 未使能', href: 'teleop.html' },
-  { name: '伴生服务（视频/桥接）', lamp: 'warn', state: '未部署（P5）', href: 'live.html' },
+  { name: '伴生服务（视频/桥接）', lamp: 'warn', state: '探测中…', href: 'live.html', probe: 'companion' },
 ];
 
 // 场景配置（占位值——实际场景位置尺寸与电池建模确定后在此更新）
@@ -47,6 +48,19 @@ const FLOW = [
 mountNav('home');
 
 renderStatList(document.getElementById('stat-list')!, SYSTEM);
+
+// 双模探测（P5-A）：本机伴生服务在线 → 实时模式（该项转绿）；否则保持演示模式占位
+void (async () => {
+  const h = await probeCompanion();
+  const idx = SYSTEM.findIndex((s) => s.probe === 'companion');
+  if (idx < 0) return;
+  if (h?.ok) {
+    SYSTEM[idx] = { ...SYSTEM[idx], lamp: 'ok', state: `在线 · 桥 ${h.bridge_clients} 客户端` };
+  } else {
+    SYSTEM[idx] = { ...SYSTEM[idx], lamp: 'warn', state: '未启动（演示模式）' };
+  }
+  renderStatList(document.getElementById('stat-list')!, SYSTEM);
+})();
 
 document.getElementById('scene-list')!.innerHTML = SCENE.map((s) => `
   <li><b>${s.name}</b><span class="val">${s.value}</span></li>`).join('');
@@ -142,7 +156,7 @@ void (async () => {
     };
     manager.onError = (url) => { txtEl.textContent = `部分资源加载失败：${url.split('/').pop()}`; };
     const loader = new URDFLoader(manager);
-    const r = await loader.loadAsync(`${import.meta.env.BASE_URL}models/ReBot_Arm_DM_preview.urdf`) as unknown as UrdfRobot;
+    const r = await loader.loadAsync(`${import.meta.env.BASE_URL}models/ReBot_Arm_DM_preview.urdf?v=2`) // ?v 破缓存：URDF 更新后 loader fetch 会被浏览器启发式缓存咬住 as unknown as UrdfRobot;
     robot = r;
     barEl.style.width = '100%';
     txtEl.textContent = '完成';

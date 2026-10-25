@@ -15,6 +15,20 @@ npm run dev        # 开发（http://localhost:5173/2026_Digital_Twin/，注意�
 npm run build      # 产物 dist/（6 页）
 ```
 
+## 伴生服务（P5-A 骨架，比赛 PC 本机跑）
+
+```powershell
+# 先构建（服务托管 dist 产物）
+cd web && npm run build
+# 启动（依赖 fastapi/uvicorn 已装 .rebot venv）
+mujoco_sim/.rebot/Scripts/python.exe web/server/main.py
+# → http://127.0.0.1:8800/（局域网设备访问 http://本机IP:8800/）
+```
+
+- `GET /api/health`：健康检查（总览页 companion.ts 探测此端点，在线→状态灯转绿"实时模式"）
+- `WS /ws`：桥接 hub（角色 web/pc；input/telemetry 即时广播 + 最新状态补发——P5-B~E 的地基）
+- 静态托管挂双路径（根 + `/2026_Digital_Twin/` 前缀，兼容 dist 的 Pages base）
+
 ## 部署（GitHub Pages，已配自动发布）
 
 push 到 main → `.github/workflows/deploy.yml` 自动构建发布。`vite.config.ts` 的 `base: '/2026_Digital_Twin/'` 与源码里 `import.meta.env.BASE_URL` 拼接模型路径——改仓库名时两处同步。

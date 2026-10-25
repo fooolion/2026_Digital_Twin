@@ -21,14 +21,18 @@ npm run build      # 产物 dist/（6 页）
 # 先构建（服务托管 dist 产物）
 cd web && npm run build
 # 启动（依赖 fastapi/uvicorn 已装 .rebot venv）
+#   COMPANION_TOKEN  桥接鉴权（pc 角色必须带；不设则每次启动随机生成并打印）
+#   COMPANION_CAMS   相机映射（默认 "1,2"=工业相机；本机测试用 "0,2"）
+#   PICO_WHEP_URL    MediaMTX WHEP 端点（配置后 PICO 大屏切实时流）
 mujoco_sim/.rebot/Scripts/python.exe web/server/main.py
 # → http://127.0.0.1:8800/（局域网设备访问 http://本机IP:8800/）
+# → pc 权威端接入：tools/pc_bridge_client.py --token <TOKEN>
 ```
 
 - `GET /api/health`：健康检查（总览页 companion.ts 探测此端点，在线→状态灯转绿"实时模式"）
 - PICO 大屏三层降级（P5-C）：① 实时流——环境变量 `PICO_WHEP_URL`（MediaMTX 的 WHEP 端点，如 `http://192.168.1.100:8889/pico/whep`；OBS 推流→MediaMTX→网页 WHEP 直连拉流，src/whep.ts）② 预录视频——放入 `web/public/media/pico.mp4`（**必须 H.264 编码**，Chromium 不支持 mp4v；mp4 不入库，.gitkeep 保留目录）后 build 即自动循环播放 ③ 占位层（附操作指引）。`GET /api/stream` 下发配置。
 - `GET /cam/{0,1}.mjpg`：双摄像头 MJPEG 流（P5-B；懒启动、15fps、多连接共享编码；相机未接自动占位帧流不断）；`GET /api/cams` 在线状态。相机映射默认 `1,2`（工业相机侧墙/后墙），环境变量 `COMPANION_CAMS="0,2"` 可覆盖——**相机编号本机相关，换机器重确认**
-- `WS /ws`：桥接 hub（角色 web/pc；input/telemetry 即时广播 + 最新状态补发——P5-B~E 的地基）
+- `WS /ws`：桥接 hub（P5-D/E 后形态）——hello 鉴权（pc 角色必须带 token，4001 拒）+ Origin 本机白名单（4003）+ role 白名单（4002）+ 操作员互斥（armed=true 占坑，他人 input 被拒 operator busy）+ input/telemetry 即时广播 + **仅 input 补发**（telemetry 不补发——防陈旧遥测锁死监控页 realMode）；pc 端参考实现 tools/pc_bridge_client.py（200ms 看门狗/指数退避重连/clamp）
 - 静态托管挂双路径（根 + `/2026_Digital_Twin/` 前缀，兼容 dist 的 Pages base）
 
 ## 部署（GitHub Pages，已配自动发布）

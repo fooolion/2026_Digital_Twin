@@ -143,13 +143,17 @@ def _LAN_IP() -> str | None:
 
 class CamStream:
     """单相机共享读取器：后台 task 读帧+编码一次，多连接共享同一份 JPEG bytes。
-    读不到帧（未接/被占）→ 生成占位帧（灰底文字），流不断。懒启动（首个请求才开相机）。"""
+    读不到帧（未接/被占）→ 生成占位帧（灰底文字），流不断。
+    懒启动（首个请求才开相机）；空闲自回收（连接归零 30s → 停任务释放相机，下次请求重开）。"""
+
+    IDLE_RECYCLE_S = 30.0
 
     def __init__(self, slot: int, device: int) -> None:
         self.slot, self.device = slot, device
         self.jpeg: bytes | None = None
         self.online = False
-        self.event = asyncio.Event()
+        self.frame_no = 0            # 帧序号：等待者比较序号（替代共享 Event，消除 set/替换竞态）
+        self.clients = 0             # 活跃 MJPEG 连接数（空闲回收依据）
         self._task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
 
@@ -165,7 +169,16 @@ class CamStream:
         loop = asyncio.get_running_loop()
         cap = await loop.run_in_executor(None, lambda: cv2.VideoCapture(self.device, cv2.CAP_DSHOW))
         try:
+            idle_since: float | None = None
             while True:
+                # 空闲自回收：无连接持续空闲 → 退出任务释放相机设备（下次请求懒启动重开）
+                if self.clients == 0:
+                    if idle_since is None:
+                        idle_since = time.monotonic()
+                    elif time.monotonic() - idle_since > self.IDLE_RECYCLE_S:
+                        return  # finally 释放相机
+                else:
+                    idle_since = None
                 t0 = time.monotonic()
                 ok, frame = await loop.run_in_executor(None, cap.read)
                 if ok:
@@ -176,11 +189,11 @@ class CamStream:
                 else:
                     self.online = False
                     self.jpeg = self._placeholder()
-                self.event.set()
-                self.event = asyncio.Event()  # 新一帧唤醒所有等待者
+                self.frame_no += 1
                 await asyncio.sleep(max(0, interval - (time.monotonic() - t0)))
         finally:
             await loop.run_in_executor(None, cap.release)
+            self._task = None
 
     async def ensure_started(self) -> None:
         async with self._lock:
@@ -188,15 +201,26 @@ class CamStream:
                 self._task = asyncio.create_task(self._run())
 
     async def frames(self):
-        """MJPEG 生成器：等新帧 → yield（多连接共享同一份 jpeg，编码每帧只做一次）。"""
+        """MJPEG 生成器：连接计数 → 等新帧号 → yield（编码每帧一次，多连接共享）。
+        ⚠ ensure_started 必须在 _lock 之外调用——asyncio.Lock 不可重入，
+        持锁调用会同协程自锁死（本函数曾因此挂死全部 MJPEG 连接）。"""
         await self.ensure_started()
-        while True:
-            if self.jpeg:
-                yield (
-                    b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
-                    + str(len(self.jpeg)).encode() + b"\r\n\r\n" + self.jpeg + b"\r\n"
-                )
-            await self.event.wait()
+        async with self._lock:
+            self.clients += 1
+        seen = self.frame_no
+        try:
+            while True:
+                if self.jpeg and self.frame_no != seen:
+                    seen = self.frame_no
+                    yield (
+                        b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                        + str(len(self.jpeg)).encode() + b"\r\n\r\n" + self.jpeg + b"\r\n"
+                    )
+                else:
+                    await asyncio.sleep(1.0 / CAM_FPS)  # 无新帧：按帧率间隔轮询（15fps 下开销可忽略）
+        finally:
+            async with self._lock:
+                self.clients -= 1
 
 
 _CAMS = [CamStream(slot, dev) for slot, dev in enumerate(CAM_IDS)]

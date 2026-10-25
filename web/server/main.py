@@ -48,6 +48,12 @@ CAM_IDS = [int(x) for x in os.environ.get("COMPANION_CAMS", "1,2").split(",")]
 CAM_FPS = 15          # MJPEG 帧率上限（1080p JPEG q70 下单流约 1-2 MB/s，局域网够用）
 CAM_JPEG_QUALITY = 70
 
+# 桥接鉴权 token（P5-D）：客户端 hello 需带 token（web 页从 /api/health 拿不到——见下）。
+# 设计：token 由环境变量 COMPANION_TOKEN 指定（比赛 PC 固定配置）；未设置时自动生成并
+# 打印到控制台（本机操作员手动抄给 pc 客户端；web 页走同源无需 token 的降级路径）。
+import secrets
+TOKEN = os.environ.get("COMPANION_TOKEN") or secrets.token_hex(8)
+
 # PICO 大屏（P5-C）：实时流走 MediaMTX 的 WHEP 端点（OBS 推流 → MediaMTX → 网页 WHEP 拉流，
 # 不经本服务转发）。环境变量 PICO_WHEP_URL 配置后 /api/stream 下发；空 = 未部署实时链路。
 # 例：PICO_WHEP_URL="http://192.168.1.100:8889/pico/whep"（MediaMTX WebRTC 默认端口 8889）
@@ -273,7 +279,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
     await ws.accept()
     role = "web"
     try:
-        # 首条消息应为 hello（带 role 白名单）；超时未说 hello 按默认 web 处理
+        # 首条消息应为 hello（带 role 白名单 + pc 角色必须带 token）；超时未说 hello 按默认 web 处理
         try:
             first = json.loads(await asyncio.wait_for(ws.receive_text(), timeout=5))
             if not isinstance(first, dict):
@@ -284,6 +290,10 @@ async def ws_endpoint(ws: WebSocket) -> None:
             pass
         if role not in ("web", "pc"):  # role 白名单（P5-D 前防自报冒充权威端）
             await ws.close(code=4002)
+            return
+        # pc 角色（权威端，可下发控制）必须带正确 token；web 角色只观察+发 input（低权限）
+        if role == "pc" and str(first.get("token") or "") != TOKEN:
+            await ws.close(code=4001)
             return
         await _HUB.join(ws, role)
         while True:
@@ -309,4 +319,5 @@ else:
 
 if __name__ == "__main__":
     print(f"[companion] http://{HOST}:{PORT}  (dist={'ok' if DIST.is_dir() else '缺失，请先 build'})")
+    print(f"[companion] bridge token: {TOKEN}  (pc 角色连接需带；COMPANION_TOKEN 环境变量可固定)")
     uvicorn.run(app, host=HOST, port=PORT, log_level="info")

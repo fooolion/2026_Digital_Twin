@@ -6,6 +6,7 @@
  * Rev: R6 · 2026-10-25
  */
 import { mountNav, toast, renderStatList, type StatItem } from './nav';
+import { probeCompanion, connectBridge } from './companion';
 import './theme.css';
 import './teleop.css';
 
@@ -24,9 +25,9 @@ const MAPPINGS: { key: string; pad: 'L' | 'R' | '—'; to: string; desc: string 
   { key: '长按「解锁」按钮 1s', pad: '—', to: '使能链路', desc: 'LOCKED → ARMED（对应长按右摇杆）' },
 ];
 
-const STATS: StatItem[] = [
+const STATS: (StatItem & { probe?: 'bridge' })[] = [
   { name: 'PICO 头显 · Unity', lamp: 'warn', state: '待接入' },
-  { name: 'WebSocket 下行桥', lamp: 'warn', state: '未部署（P5）' },
+  { name: 'WebSocket 下行桥', lamp: 'warn', state: '探测中…', probe: 'bridge' },
   { name: '安全联锁状态机', lamp: 'ok', state: '本地运行' },
 ];
 
@@ -128,6 +129,41 @@ view.addEventListener('pointerup', (e) => {
 });
 view.addEventListener('pointercancel', () => { input.rA = false; input.rB = false; });
 view.addEventListener('contextmenu', (e) => e.preventDefault()); // 右键是 B 键，别弹菜单
+
+/* ===== P5-D：伴生服务桥——input 下行（ARMED 才发，30Hz 节流；LOCKED/ESTOP 不发） ===== */
+let bridgeWs: WebSocket | null = null;
+let lastSendTs = 0;
+const SEND_HZ = 30;
+
+function sendInputDownlink(): void {
+  if (!bridgeWs || bridgeWs.readyState !== WebSocket.OPEN) return;
+  if (lock !== 'ARMED') return; // 闭锁/急停态绝不下发——状态机是下行总闸
+  const now = performance.now();
+  if (now - lastSendTs < 1000 / SEND_HZ) return;
+  lastSendTs = now;
+  bridgeWs.send(JSON.stringify({ type: 'input', payload: { ...input } }));
+}
+
+function bridgeStat(lamp: 'ok' | 'warn' | 'off', state: string): void {
+  const i = STATS.findIndex((s) => s.probe === 'bridge');
+  if (i >= 0) {
+    STATS[i] = { ...STATS[i], lamp, state };
+    renderStatList(document.getElementById('tp-stats')!, STATS);
+  }
+}
+
+void (async () => {
+  const h = await probeCompanion();
+  if (!h?.ok) {
+    bridgeStat('warn', '未启动（演示模式）');
+    return;
+  }
+  bridgeWs = connectBridge(
+    () => { /* 页面暂不消费上行 state（P5-E 监控页消费） */ },
+    (reason) => bridgeStat('off', `已断开（${reason}）`),
+  );
+  if (bridgeWs) bridgeStat('ok', '已连接 · ARMED 时 30Hz 下行');
+})();
 
 /* ===== 安全联锁状态机（三级防护） ===== */
 
@@ -280,6 +316,8 @@ function frame(): void {
   const rOut = '杆' + fmt(input.rStick) + ' ' + (input.rA ? 'A●' : 'A—') + ' ' + (input.rB ? 'B●' : 'B—');
   if (lOut !== lastLOutput) { padIOs.l.textContent = lOut; lastLOutput = lOut; }
   if (rOut !== lastROutput) { padIOs.r.textContent = rOut; lastROutput = rOut; }
+
+  sendInputDownlink(); // P5-D：ARMED 态 30Hz 下行（内部节流+状态机总闸）
 
   requestAnimationFrame(frame);
 }

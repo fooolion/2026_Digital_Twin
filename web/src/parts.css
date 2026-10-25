@@ -24,7 +24,7 @@
 .part-item:hover { border-color: rgba(0, 212, 255, 0.38); }
 .part-item.active { background: rgba(0, 212, 255, 0.10); border-color: rgba(0, 212, 255, 0.55); }
 .p-fmt {
-  flex: none; font-family: 'JetBrains Mono', Consolas, ui-monospace, monospace;
+  flex: none; font-family: 'JetBrains Mono', Consolas, ui-monospace, 'Microsoft YaHei', 'PingFang SC', monospace;
   font-size: 9.5px; letter-spacing: .05em; color: #00d4ff;
   padding: 3px 6px; border-radius: 3px;
   background: rgba(0, 212, 255, 0.10); border: 1px solid rgba(0, 212, 255, 0.25);

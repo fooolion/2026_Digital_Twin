@@ -18,7 +18,7 @@
 .tp-lock-card .hud-title::before { background: var(--color-alarm); box-shadow: 0 0 8px rgba(255, 77, 79, .6); }
 .tp-lock-card.armed .hud-title::before { background: var(--color-acc); box-shadow: 0 0 8px rgba(46, 229, 132, .6); }
 .lock-state { display: flex; align-items: center; gap: 10px; margin: 14px 0 6px; font-size: 15px; }
-.lock-state b { font-family: 'JetBrains Mono', Consolas, ui-monospace, monospace; letter-spacing: .04em; }
+.lock-state b { font-family: 'JetBrains Mono', Consolas, ui-monospace, 'Microsoft YaHei', 'PingFang SC', monospace; letter-spacing: .04em; }
 .tp-lock-card > p { font-size: 11.5px; line-height: 1.7; margin: 0 0 14px; }
 
 .tp-hold-btn {
@@ -70,12 +70,12 @@
 .tp-pad-r { right: 18px; }
 .pad-name {
   font-size: 10.5px; letter-spacing: .1em; color: rgba(0, 212, 255, 0.75); margin-bottom: 4px;
-  font-family: 'JetBrains Mono', Consolas, ui-monospace, monospace;
+  font-family: 'JetBrains Mono', Consolas, ui-monospace, 'Microsoft YaHei', 'PingFang SC', monospace;
 }
 .pad-svg { width: 100%; display: block; filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.5)); }
 .pad-io {
   margin-top: 4px; font-size: 9px; color: rgba(255, 255, 255, 0.45);
-  font-family: 'JetBrains Mono', Consolas, ui-monospace, monospace; line-height: 1.5;
+  font-family: 'JetBrains Mono', Consolas, ui-monospace, 'Microsoft YaHei', 'PingFang SC', monospace; line-height: 1.5;
   white-space: pre;
 }
 
@@ -87,21 +87,21 @@
 .p-btn { fill: #223550; stroke: rgba(255, 255, 255, 0.2); transition: fill .08s ease; }
 .p-btn.on { fill: #2ee584; }
 .p-btn.on + .p-btntxt { fill: #06281a; } /* 只用 +：~ 会把后续兄弟字母全部串色 */
-.p-btntxt { fill: #9fb2cc; font-size: 8px; text-anchor: middle; font-family: 'JetBrains Mono', monospace; pointer-events: none; }
+.p-btntxt { fill: #9fb2cc; font-size: 8px; text-anchor: middle; font-family: 'JetBrains Mono', 'Microsoft YaHei', 'PingFang SC', monospace; pointer-events: none; }
 .p-grip { fill: #223550; stroke: rgba(255, 255, 255, 0.2); transition: fill .08s ease; }
 .p-grip.on { fill: #ffb454; }
 
 /* ── 右列：映射表 + 日志 ── */
 .tp-map { width: 100%; border-collapse: collapse; margin-top: 10px; }
 .tp-map td { padding: 7px 6px; font-size: 11px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); vertical-align: top; }
-.tp-map .m-key { color: rgba(255, 255, 255, 0.85); white-space: nowrap; font-family: 'JetBrains Mono', Consolas, ui-monospace, monospace; font-size: 10.5px; }
+.tp-map .m-key { color: rgba(255, 255, 255, 0.85); white-space: nowrap; font-family: 'JetBrains Mono', Consolas, ui-monospace, 'Microsoft YaHei', 'PingFang SC', monospace; font-size: 10.5px; }
 .tp-map .m-pad { color: #00d4ff; font-size: 10px; }
 .tp-map .m-to { color: #7df0bd; white-space: nowrap; }
 .tp-map .m-desc { color: #8fa0b5; }
 
 .tp-log { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; font-size: 11.5px; }
 .tp-log li { display: flex; gap: 8px; align-items: baseline; color: rgba(255, 255, 255, 0.8); }
-.tp-log .log-t { color: #56637a; font-family: 'JetBrains Mono', Consolas, ui-monospace, monospace; font-size: 10px; flex: none; }
+.tp-log .log-t { color: #56637a; font-family: 'JetBrains Mono', Consolas, ui-monospace, 'Microsoft YaHei', 'PingFang SC', monospace; font-size: 10px; flex: none; }
 .tp-log-card { flex: 1; min-height: 160px; }
 
 @media (max-width: 1180px) {

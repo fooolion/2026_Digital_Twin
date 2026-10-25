@@ -1,0 +1,64 @@
+/* ===== 零件库（R5）：左列表/导入 + 右预览视口 ===== */
+
+.parts {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  grid-template-rows: 1fr;
+  gap: 14px;
+  min-height: 100vh;
+  padding: 70px 18px 18px;
+  box-sizing: border-box;
+  max-width: 1720px;
+  margin: 0 auto;
+}
+.pt-left { display: flex; flex-direction: column; gap: 14px; }
+.pt-card { padding: 16px 16px 14px; }
+
+/* 零件列表 */
+.part-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.part-item {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  padding: 10px 12px; border-radius: 4px;
+  background: rgba(0, 212, 255, 0.04); border: 1px solid rgba(0, 212, 255, 0.14);
+  transition: border-color .12s ease, background .12s ease;
+}
+.part-item:hover { border-color: rgba(0, 212, 255, 0.38); }
+.part-item.active { background: rgba(0, 212, 255, 0.10); border-color: rgba(0, 212, 255, 0.55); }
+.p-fmt {
+  flex: none; font-family: 'JetBrains Mono', Consolas, ui-monospace, monospace;
+  font-size: 9.5px; letter-spacing: .05em; color: #00d4ff;
+  padding: 3px 6px; border-radius: 3px;
+  background: rgba(0, 212, 255, 0.10); border: 1px solid rgba(0, 212, 255, 0.25);
+}
+.p-info { min-width: 0; }
+.p-info b { display: block; font-size: 12.5px; font-weight: 500; color: rgba(255,255,255,.92);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-info small { font-size: 10.5px; color: #56637a; font-variant-numeric: tabular-nums; }
+
+/* 导入 / 应用按钮 */
+.pt-import { width: 100%; justify-content: center; padding: 11px 0; font-size: 13.5px; margin-top: 12px; }
+.pt-apply { width: 100%; justify-content: center; padding: 10px 0; font-size: 12.5px; margin-top: 12px; }
+.pt-hint { font-size: 11px; line-height: 1.7; margin: 10px 0 0; }
+
+/* 预览视口 */
+.pt-view { position: relative; overflow: hidden; min-height: 420px; padding: 0;
+  background: radial-gradient(ellipse 80% 70% at 50% 42%, rgba(20, 52, 96, 0.5), rgba(8, 16, 30, 0.94));
+}
+#part-3d { position: absolute; inset: 0; }
+#part-3d canvas { display: block; }
+.pt-view .vp-tag {
+  position: absolute; top: 12px; left: 12px; z-index: 2;
+  font-size: 11px; letter-spacing: .08em; color: rgba(0, 212, 255, 0.85);
+  padding: 5px 10px; border: 1px solid rgba(0, 212, 255, 0.30); border-radius: 3px;
+  background: rgba(4, 18, 34, 0.55); backdrop-filter: blur(4px);
+}
+.pt-meta {
+  position: absolute; bottom: 12px; left: 12px; z-index: 2;
+  font-size: 11px; color: rgba(255, 255, 255, 0.55); font-variant-numeric: tabular-nums;
+  padding: 5px 10px; border-radius: 3px; background: rgba(4, 18, 34, 0.55);
+}
+
+@media (max-width: 1080px) {
+  .parts { grid-template-columns: 1fr; padding-top: 66px; }
+  .pt-view { min-height: 380px; order: -1; }
+}

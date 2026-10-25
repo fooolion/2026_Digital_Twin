@@ -5,28 +5,40 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232ee584'/%3E%3C/svg%3E" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>零件库 · 报废电池拆解数字孪生</title>
-    <script type="module" src="/src/stub.ts"></script>
   </head>
-  <body data-page="workshop">
-    <div class="ambient" aria-hidden="true"><div class="grid-bg"></div><div class="orb orb-a"></div><div class="orb orb-c"></div></div>
+  <body>
     <header id="site-nav"></header>
-    <main class="max-w-3xl mx-auto px-6 pt-32 pb-24">
-      <p class="text-[12.5px] tracking-[.14em] text-accsoft mb-3 reveal">工作流 · 第 ① 步</p>
-      <h1 class="text-3xl font-bold mb-4 reveal">零件库</h1>
-      <p class="text-fog text-[14px] leading-7 mb-10 reveal">导入电池零件模型并登记到拆解场景——整个工作流的起点。</p>
-      <div class="glass rounded-2xl p-10 text-center reveal">
-        <div class="text-4xl mb-4">🧰</div>
-        <h2 class="text-lg font-semibold mb-2">零件库建设中</h2>
-        <p class="text-fog text-[13px] leading-7 mb-7">
-          这里将支持：STL / OBJ / GLB 本地导入 · 场景拖放排布 · STEP（开发中）<br/>
-          电池模型与拆解工装库 · 自定义任务编排
-        </p>
-        <button type="button" id="import-btn" class="btn-solid">📂 从本地导入电池模型</button>
-        <div class="flex gap-3 justify-center flex-wrap mt-8">
-          <a class="btn-ghost" href="index.html">← 返回首页</a>
-          <a class="btn-ghost" href="sim.html">先去玩仿真 →</a>
-        </div>
-      </div>
+    <div class="ambient" aria-hidden="true"><div class="grid-bg"></div><div class="orb orb-b"></div></div>
+
+    <main class="parts">
+      <!-- 左：零件列表 + 导入 -->
+      <aside class="pt-left">
+        <section class="hud-panel pt-card">
+          <h2 class="hud-title">零件列表</h2>
+          <ul class="part-list" id="part-list"></ul>
+        </section>
+        <section class="hud-panel pt-card">
+          <h2 class="hud-title">导入</h2>
+          <button type="button" class="btn-solid pt-import" id="import-btn">从本地导入电池模型</button>
+          <input type="file" id="import-file" accept=".stl,.glb,.gltf,.obj" multiple hidden />
+          <p class="t-lo pt-hint">支持 STL / GLB / GLTF / OBJ（本地解析，不上传服务器）<br/>
+          STEP 格式请先用 CAD 导出为 GLB/STL 后导入</p>
+        </section>
+        <section class="hud-panel pt-card">
+          <h2 class="hud-title">应用到场景</h2>
+          <button type="button" class="btn-ghost pt-apply" id="apply-btn">投放到仿真工作台</button>
+          <p class="t-lo pt-hint">选中零件投放至仿真场景的放置位（场景尺寸定稿后开放，当前记录选择）</p>
+        </section>
+      </aside>
+
+      <!-- 右：预览视口 -->
+      <section class="hud-panel pt-view">
+        <div id="part-3d" aria-label="零件预览视口"></div>
+        <div class="vp-tag">3D 预览（左键旋转 · 滚轮缩放）</div>
+        <div class="pt-meta" id="part-meta"></div>
+      </section>
     </main>
+
+    <script type="module" src="/src/workshop.ts"></script>
   </body>
 </html>

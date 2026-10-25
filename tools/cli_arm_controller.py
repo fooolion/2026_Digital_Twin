@@ -129,16 +129,27 @@ class CliArmController:
     # ---------- 状态查询 ----------
 
     def get_joint_actual_deg(self, joint_id):
-        """读某关节当前实际角度。
+        """读某关节当前实际角度（反馈丢失自动重试 3 次）。
 
-        joint_id: 关节编号 1-7。返回角度，单位度（读不到反馈时返回 0.0）。
+        joint_id: 关节编号 1-7。返回角度，单位度。
+        连续 3 次拿不到反馈时抛 RuntimeError——绝不静默返回 0.0：
+        该值会被用作绝对位置指令的起点（move_joint）和锁位目标（hold），
+        反馈丢失时装作 0° 会让臂以限速全速甩向 0 位（真机安全红线）。
         """
         m = self.motors[joint_id]
-        if hasattr(m, "request_feedback"):
-            m.request_feedback()
-        self.ctrl.poll_feedback_once()
-        st = m.get_state()
-        rad = getattr(st, "pos", getattr(st, "position", 0.0)) if st else 0.0
+        st = None
+        for _ in range(3):
+            if hasattr(m, "request_feedback"):
+                m.request_feedback()
+            self.ctrl.poll_feedback_once()
+            st = m.get_state()
+            if st is not None:
+                break
+            time.sleep(0.05)
+        if st is None:
+            raise RuntimeError(f"{_cfg(joint_id)['name']} 反馈丢失（重试 3 次）——中止本次操作，"
+                               f"绝不以 0° 兜底下发绝对位置指令")
+        rad = getattr(st, "pos", getattr(st, "position", 0.0))
         return math.degrees(rad)
 
     def print_status_table(self):
@@ -147,9 +158,13 @@ class CliArmController:
         print(f"{'编号':<4} | {'关节名称':<12} | {'当前实际角度':<14} | {'安全限制范围 (Min ~ Max)':<24} | {'限速 (rad/s)'}")
         print("-" * 80)
         for j in JOINTS_CONFIG:
-            curr_deg = self.get_joint_actual_deg(j["id"])
+            try:
+                curr_deg = self.get_joint_actual_deg(j["id"])
+                curr_str = f"{curr_deg:.2f}°"
+            except RuntimeError:
+                curr_str = "无反馈"
             lim_str = f"[{j['min_deg']:>6.1f}° ~ {j['max_deg']:>6.1f}°]"
-            print(f"  {j['id']:<3} | {j['name']:<12} | {curr_deg:>10.2f}°    | {lim_str:<24} | {j['vlim']:>6.1f}")
+            print(f"  {j['id']:<3} | {j['name']:<12} | {curr_str:>12}    | {lim_str:<24} | {j['vlim']:>6.1f}")
         print("=" * 80)
 
     # ---------- 运动 ----------
@@ -190,13 +205,20 @@ class CliArmController:
         # 重力下位置环有零点几度的稳态误差（肩/肘明显），补发逼近到位
         time.sleep(0.2)
         for _ in range(3):
-            end_deg = self.get_joint_actual_deg(joint_id)
-            if abs(end_deg - target_deg) <= 0.3:
+            try:
+                end_deg = self.get_joint_actual_deg(joint_id)
+            except RuntimeError:
+                end_deg = None
+            if end_deg is None or abs(end_deg - target_deg) <= 0.3:
                 break
             motor.send_pos_vel(target_rad, cfg["vlim"])
             time.sleep(0.4)
-        end_deg = self.get_joint_actual_deg(joint_id)
-        print(f"[+] 运动完成！最终反馈角度: {end_deg:.2f}° (目标: {target_deg:.2f}°)")
+        try:
+            end_deg = self.get_joint_actual_deg(joint_id)
+            end_str = f"{end_deg:.2f}°"
+        except RuntimeError:
+            end_str = "无反馈（运动已下发，读回失败）"
+        print(f"[+] 运动完成！最终反馈角度: {end_str} (目标: {target_deg:.2f}°)")
         return True
 
     def print_torques(self, duration=0.0):
@@ -254,13 +276,21 @@ class CliArmController:
         print(f"[+] {cfg['name']} 已卸力。观察：稳住 or 会掉；手扳可换姿态；输 'on {joint_id}' 恢复。")
 
     def hold(self, joint_id):
-        """重新使能单轴并锁在当前角度（交互命令 on）。"""
+        """重新使能单轴并锁在当前角度（交互命令 on）。
+
+        读不到反馈时抛 RuntimeError 中止（保持卸力状态是安全的），
+        绝不锁向 0° 兜底。
+        """
         cfg = _cfg(joint_id)
         deg = self.get_joint_actual_deg(joint_id)
         m = self.motors[joint_id]
         m.enable()
         time.sleep(0.1)
-        m.ensure_mode(motorbridge.MODE_POS_VEL)
+        try:
+            m.ensure_mode(motorbridge.MODE_POS_VEL)
+        except Exception:
+            time.sleep(0.2)
+            m.ensure_mode(motorbridge.MODE_POS_VEL)   # 首调常超时（见构造函数），重试一次
         m.send_pos_vel(math.radians(deg), cfg["vlim"])
         print(f"[+] {cfg['name']} 已恢复使能，锁在 {deg:.2f}°。")
 
@@ -281,11 +311,17 @@ class CliArmController:
         self.motors[joint_id].disable()
         t0 = time.time()
         series = []                                       # (秒, 角度) 时间序列，供坠落速度对表
+        last = a0                                         # 丢帧时沿用上一采样，序列保持连续
         while time.time() - t0 < seconds:
-            series.append((time.time() - t0, self.get_joint_actual_deg(joint_id)))
+            t = time.time() - t0
+            try:
+                last = self.get_joint_actual_deg(joint_id)
+            except RuntimeError:
+                pass
+            series.append((t, last))
             time.sleep(0.2)
-        a1 = self.get_joint_actual_deg(joint_id)
-        self.hold(joint_id)
+        a1 = last
+        self.hold(joint_id)                               # 无论采样是否丢帧，恢复使能必被执行
         drop = abs(a1 - a0)
         verdict = "会掉 ✗（frictionloss 应 > 此姿态重力负载）" if drop > 2.0 \
             else "稳住 ✓（frictionloss 应 < 此姿态重力负载）"
@@ -303,65 +339,71 @@ class CliArmController:
         print("[*] 输入 'q' 退出并断电卸力")
         self.print_status_table()
 
-        while True:
-            try:
-                raw = input("\n请输入控制指令 (例如: 1 45.0 / pose 0 -50 -40 0 0 0 / test 3): ").strip()
-                if not raw:
-                    continue
-                if raw.lower() in ("q", "quit", "exit"):
-                    break
-                if raw.lower() in ("list", "status", "ls"):
-                    self.print_status_table()
-                    continue
-
-                parts = raw.split()
-                cmd = parts[0].lower()
-
-                if cmd in ("off", "on", "test"):          # 摩擦标定三件套
-                    if len(parts) < 2:
-                        print(f"[!] 格式: {cmd} <关节 1-7>" + (" [秒]" if cmd == "test" else ""))
+        try:
+            while True:
+                try:
+                    raw = input("\n请输入控制指令 (例如: 1 45.0 / pose 0 -50 -40 0 0 0 / test 3): ").strip()
+                    if not raw:
                         continue
-                    jid = int(parts[1])
+                    if raw.lower() in ("q", "quit", "exit"):
+                        break
+                    if raw.lower() in ("list", "status", "ls"):
+                        self.print_status_table()
+                        continue
+
+                    parts = raw.split()
+                    cmd = parts[0].lower()
+
+                    if cmd in ("off", "on", "test"):          # 摩擦标定三件套
+                        if len(parts) < 2:
+                            print(f"[!] 格式: {cmd} <关节 1-7>" + (" [秒]" if cmd == "test" else ""))
+                            continue
+                        jid = int(parts[1])
+                        if jid not in range(1, 8):
+                            print("[!] 关节编号错误，可选范围为 1 ~ 7")
+                            continue
+                        if cmd == "off":
+                            self.limp(jid)
+                        elif cmd == "on":
+                            self.hold(jid)
+                        else:
+                            self.drop_test(jid, float(parts[2]) if len(parts) > 2 else 3.0)
+                        continue
+
+                    if cmd == "tau":                          # 7 轴扭矩速读（T_CLAMP 标定用）
+                        self.print_torques(float(parts[1]) if len(parts) > 1 else 0.0)
+                        continue
+
+                    if cmd == "pose":                         # 整臂姿态
+                        if len(parts) != 7:
+                            print("[!] 格式: pose <J1> <J2> <J3> <J4> <J5> <J6>（共 6 个角度）")
+                            continue
+                        self.move_pose([float(v) for v in parts[1:7]])
+                        continue
+
+                    if len(parts) != 2:                       # 默认：单轴运动 <关节> <角度>
+                        print("[!] 格式错误！可用: <关节 1-7> <角度> | pose 六角度 | off/on/test <关节>")
+                        continue
+                    jid, t_deg = int(parts[0]), float(parts[1])
                     if jid not in range(1, 8):
                         print("[!] 关节编号错误，可选范围为 1 ~ 7")
                         continue
-                    if cmd == "off":
-                        self.limp(jid)
-                    elif cmd == "on":
-                        self.hold(jid)
-                    else:
-                        self.drop_test(jid, float(parts[2]) if len(parts) > 2 else 3.0)
-                    continue
+                    cfg = _cfg(jid)
+                    print(f"\n>>> 选中关节: {cfg['name']} | 允许安全范围: [{cfg['min_deg']:.1f}°, {cfg['max_deg']:.1f}°]")
+                    self.move_joint(jid, t_deg)
 
-                if cmd == "tau":                          # 7 轴扭矩速读（T_CLAMP 标定用）
-                    self.print_torques(float(parts[1]) if len(parts) > 1 else 0.0)
-                    continue
-
-                if cmd == "pose":                         # 整臂姿态
-                    if len(parts) != 7:
-                        print("[!] 格式: pose <J1> <J2> <J3> <J4> <J5> <J6>（共 6 个角度）")
-                        continue
-                    self.move_pose([float(v) for v in parts[1:7]])
-                    continue
-
-                if len(parts) != 2:                       # 默认：单轴运动 <关节> <角度>
-                    print("[!] 格式错误！可用: <关节 1-7> <角度> | pose 六角度 | off/on/test <关节>")
-                    continue
-                jid, t_deg = int(parts[0]), float(parts[1])
-                if jid not in range(1, 8):
-                    print("[!] 关节编号错误，可选范围为 1 ~ 7")
-                    continue
-                cfg = _cfg(jid)
-                print(f"\n>>> 选中关节: {cfg['name']} | 允许安全范围: [{cfg['min_deg']:.1f}°, {cfg['max_deg']:.1f}°]")
-                self.move_joint(jid, t_deg)
-
-            except ValueError:
-                print("[!] 输入非法：请输入有效数字！")
-            except KeyboardInterrupt:
-                print("\n[!] 收到 Ctrl+C 中断信号！")
-                break
-
-        self.shutdown()
+                except ValueError:
+                    print("[!] 输入非法：请输入有效数字！")
+                except KeyboardInterrupt:
+                    print("\n[!] 收到 Ctrl+C 中断信号！")
+                    break
+                except Exception as e:
+                    # 通信丢失等任何异常：中止本条指令但不退出——退出必须走 q（安全卸力）。
+                    # 若刚才卸力过，该轴仍处于卸力状态（安全），通信恢复后重试即可。
+                    print(f"\n[!] 指令执行异常（通信丢失?）：{e}")
+                    print("    已中止该指令。恢复后可重新输入（输 q 安全退出并卸力）。")
+        finally:
+            self.shutdown()      # q / Ctrl+C / 任何漏网异常：逐轴卸力必被执行
 
     def shutdown(self):
         """逐轴卸力并关闭 CAN 总线（退出前必须走这里；直接点终端 × 会跳过）。"""

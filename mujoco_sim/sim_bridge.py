@@ -34,6 +34,9 @@ import mujoco
 
 from rebot_control import arm_servo, gripper_servo, GEAR_RADIUS
 
+# 路径锚定：无论从哪个目录启动都切到项目根（模型/输出全用相对路径，与 tools/ 同一约定）
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 MODEL = "mujoco_sim/models/ReBot_Arm_DM.xml"
 OUT = "mujoco_sim/output/latest_state.json"
 TARGET = "mujoco_sim/output/target.json"

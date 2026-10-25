@@ -5,7 +5,7 @@
 功能：
 1. 循环查询 7 轴达妙电机的物理位置 (rad)、速度 (rad/s)、受到的真实力矩 (N·m)
 2. 保持电机失能，支持安全手扳/负载检测
-3. 对外通过 UDP 广播及 JSON 文件同步给 MuJoCo/Unity 消费端
+3. 对外通过 UDP（本机回环）及 JSON 文件同步给 MuJoCo/Unity 消费端
 
 本机修改 (2026-10-02, 李郑阳侧)：
 - 串口默认 COM8（队长机为 COM13）；可用命令行第一个参数覆盖：python test_force.py COM13
@@ -28,7 +28,8 @@ BAUD_RATE = 921600
 GEAR_RADIUS = 0.008           # 夹爪齿轮节圆半径(米)，与 mujoco_sim/rebot_control.py 的 GEAR_RADIUS 保持一致（勿单边修改）
 
 # 数据分发配置
-UDP_BROADCAST_IP = "127.0.0.1"
+UDP_TARGET_IP = "127.0.0.1"  # 仅本机回环（当前消费端 safety_monitor/Unity 均同机）；
+                             # 跨机分发时改为实际广播地址（如 192.168.x.255）并确认接收端绑定
 UDP_BROADCAST_PORT = 9004  # 与既有遥测端口保持一致
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JSON_OUTPUT_PATH = os.path.join(_ROOT, "mujoco_sim", "output", "latest_state.json")
@@ -55,7 +56,7 @@ def extract_torque(state_obj):
     return 0.0
 
 def main():
-    """遥测主循环：50Hz 轮询 7 轴 → UDP 9004 广播 + (加 --json 时)覆写 latest_state.json。"""
+    """遥测主循环：50Hz 轮询 7 轴 → UDP 9004 发往本机消费端 + (加 --json 时)覆写 latest_state.json。"""
     # 串口号 = 第一个不以 - 开头的命令行参数（兼容 --json 与位置参数任意顺序）
     port = next((a for a in sys.argv[1:] if not a.startswith("-")), SERIAL_PORT)
     print(f"[*] 正在初始化达妙 CAN 网关 ({port} @ {BAUD_RATE})...")
@@ -125,7 +126,7 @@ def main():
                 "gripper_pos": positions[6],
                 "gripper_tau": torques[6]
             }
-            tx_sock.sendto(json.dumps(telemetry).encode("utf-8"), (UDP_BROADCAST_IP, UDP_BROADCAST_PORT))
+            tx_sock.sendto(json.dumps(telemetry).encode("utf-8"), (UDP_TARGET_IP, UDP_BROADCAST_PORT))
 
             # 2. 覆写 latest_state.json（符合系统数据规范；默认跳过——那是 sim_bridge.py →
             #    Unity 渲染链路的通道，确需覆写时加 --json，且不要与 sim_bridge 同时跑）

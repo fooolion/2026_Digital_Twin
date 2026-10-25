@@ -26,6 +26,7 @@
     test <关节> [秒]   定量坠落测试：卸力 N 秒报 Δ° 与时间序列，自动恢复（对照真机同款命令）
     pose <J1..J6>      设置 6 轴角度（锁位的关节伺服过去，断电的关节瞬移）
     list               打印 7 关节模式与角度
+    help               指令速查
     q                  退出并清力矩
 
 说明：
@@ -36,6 +37,7 @@
 """
 import argparse
 import math
+import os
 import queue
 import sys
 import threading
@@ -45,6 +47,9 @@ import numpy as np
 import mujoco
 
 from rebot_control import arm_servo, gripper_servo, GEAR_RADIUS
+
+# 路径锚定：无论从哪个目录启动都切到项目根（模型/输出全用相对路径，与 tools/ 同一约定）
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 MODEL = "mujoco_sim/models/ReBot_Arm_DM.xml"
 JOINT_NAMES = [f"joint{i}" for i in range(1, 7)] + ["gripper_gear"]
@@ -266,7 +271,7 @@ def viewer_interactive(model: mujoco.MjModel, data: mujoco.MjData,
 
     handle = viewer.launch_passive(model, data)
     print("交互式查看器就绪：在【终端】输入指令（点一下终端窗口打字），3D 窗口看效果。")
-    print("  指令: off/on/test <关节 1-7> [秒] | pose <6角> | list | q   （同真机 CLI 语法）")
+    print("  指令: off/on/test <关节 1-7> [秒] | pose <6角> | list | help | q   （同真机 CLI 语法）")
 
     try:
         while handle.is_running() and not stop[0]:

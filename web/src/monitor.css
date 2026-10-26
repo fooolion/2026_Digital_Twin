@@ -41,13 +41,15 @@
 .mn-video-ph.sm span { font-size: 10px; }
 .mn-video-ph.sm .ph-ico { display: none; }
 .mn-fs-btn {
-  align-self: flex-end; margin: 0 12px 6px 0; position: relative; z-index: 2;
-  font: inherit; font-size: 11.5px; cursor: pointer; color: #9fd8ff;
-  padding: 5px 12px; border-radius: 4px;
+  position: absolute; bottom: 10px; right: 10px; z-index: 2;
+  width: 32px; height: 32px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; color: #9fd8ff;
+  border-radius: var(--radius-sm);
   background: rgba(4,18,34,.65); border: 1px solid rgba(0,212,255,.3);
-  transition: border-color .15s ease, color .15s ease;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
 }
-.mn-fs-btn:hover { border-color: rgba(0,212,255,.6); color: #d8f1ff; }
+.mn-fs-btn:hover { border-color: rgba(0,212,255,.6); color: #d8f1ff; background: rgba(4,18,34,.85); }
 
 /* 实时力矩（P5-D telemetry.tau 驱动）：并排两列（7 项 = 4+3），紧凑不占高 */
 .torque-list {

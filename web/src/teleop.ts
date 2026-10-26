@@ -189,7 +189,6 @@ void (async () => {
     },
     () => bridgeStat('ok', '已连接 · ARMED 时 30Hz 下行'), // welcome 收到才转绿
   );
-  if (bridgeWs) bridgeStat('ok', '已连接 · ARMED 时 30Hz 下行');
 })();
 
 /* ===== 安全联锁状态机（三级防护） ===== */

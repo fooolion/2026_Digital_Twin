@@ -48,8 +48,7 @@
 /* ── 中央 VR 视口 ── */
 .tp-view {
   position: relative; overflow: hidden; min-height: 480px; padding: 0;
-  background:
-    var(--vp-bg);
+  background: var(--vp-bg);
   user-select: none;
 }
 .tp-vr-hint {

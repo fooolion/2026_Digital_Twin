@@ -10,7 +10,7 @@
 .cp-note { margin: 10px 0 0; font-size: 11px; line-height: 1.6; } /* stat-list 已上移 theme.css */
 
 /* 中央视口 */
-.cp-center { position: relative; border-radius: 4px; overflow: hidden; min-height: 420px;
+.cp-center { position: relative; border-radius: var(--radius-panel); overflow: hidden; min-height: 420px;
   background: var(--vp-bg);
   border: 1px solid rgba(0, 212, 255, 0.20);
   box-shadow: inset 0 0 60px rgba(0, 40, 90, 0.35);
@@ -35,7 +35,7 @@
 #task-card p { margin: 0; font-size: 12.5px; line-height: 1.7; }
 
 /* 底部工作流进度条 */
-.cp-flow { grid-column: 1 / -1; padding: 14px 18px; }
+.cp-flow { grid-column: 1 / -1; padding: 12px 18px; }
 .flow-bar { display: flex; align-items: stretch; gap: 0; }
 .flow-step2 {
   flex: 1; display: flex; align-items: center; gap: 10px; padding: 4px 14px;

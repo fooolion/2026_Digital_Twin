@@ -12,7 +12,7 @@
     <div class="ambient" aria-hidden="true"><div class="grid-bg"></div><div class="orb orb-b"></div></div>
 
     <h1 class="sr-only">遥操作</h1>
-    <main class="teleop">
+    <main class="page-shell teleop">
       <!-- 左：安全联锁（三级防护状态机） + 链路 -->
       <aside class="tp-left">
         <section class="hud-panel tp-card tp-lock-card" id="lock-card">
@@ -28,7 +28,7 @@
           </button>
           <button type="button" class="tp-estop-btn" id="tp-estop" hidden>急 停（A+B）</button>
         </section>
-        <section class="hud-panel tp-card">
+        <section class="hud-panel hud-card tp-card">
           <h2 class="hud-title">链路状态</h2>
           <ul class="stat-list" id="tp-stats"></ul>
         </section>
@@ -73,7 +73,7 @@
 
       <!-- 右：映射表 + 事件日志 -->
       <aside class="tp-right">
-        <section class="hud-panel tp-card">
+        <section class="hud-panel hud-card tp-card">
           <h2 class="hud-title">键鼠映射</h2>
           <table class="tp-map" id="tp-map"></table>
         </section>

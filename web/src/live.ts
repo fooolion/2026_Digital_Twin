@@ -6,7 +6,7 @@
  * Rev: R4 · 2026-10-25
  */
 import { mountNav, toast, renderStatList, type StatItem } from './nav';
-import { probeCompanion, COMPANION_BASE, connectBridge } from './companion';
+import { COMPANION_BASE, connectBridge, watchCompanion } from './companion';
 import { pullWhep } from './whep';
 import './theme.css';
 import './monitor.css';
@@ -21,6 +21,19 @@ const STATS: (StatItem & { probe?: 'cams' | 'pico' | 'ws' })[] = [
   { name: '实体臂 B601-DM', lamp: 'off', state: '离线 · 未使能' },
 ];
 renderStatList(document.getElementById('mn-stats')!, STATS);
+
+/* ===== 三块共享探测：watchCompanion 统一驱动（周期重探；服务后启动也能恢复） ===== */
+watchCompanion((h) => {
+  if (!h?.ok) {
+    picoState('warn', '未启动（演示模式）');
+    camStat('warn', '未启动（演示模式）');
+    wsStat('warn', '未启动（演示模式）');
+    return;
+  }
+  void setupPico();
+  void setupCams();
+  void setupBridge();
+});
 
 /* ===== P5-C：PICO 大屏三层降级（WHEP 实时流 > 预录视频 > 占位层） ===== */
 const picoVideo = document.getElementById('pico-video') as HTMLVideoElement;
@@ -40,12 +53,7 @@ function showPicoVideo(srcType: 'stream' | 'file'): void {
   void srcType;
 }
 
-void (async () => {
-  const h = await probeCompanion();
-  if (!h?.ok) {
-    picoState('warn', '未启动（演示模式）');
-    return;
-  }
+async function setupPico(): Promise<void> {
   let cfg: { whep: string; video: boolean; video_url: string | null } | null = null;
   try {
     cfg = await (await fetch(`${COMPANION_BASE}/api/stream`)).json();
@@ -81,7 +89,7 @@ void (async () => {
   const hint = picoPh.querySelector('span');
   if (hint) hint.textContent = cfg?.whep ? 'MediaMTX 未推流 · 请检查 OBS' : '放入 web/public/media/pico.mp4 或配置 PICO_WHEP_URL';
   picoState('warn', '待接入（预录视频/实时流均未就位）');
-})();
+}
 
 /* ===== P5-B：伴生服务在线 → 双摄像头 MJPEG 填 src + 状态灯；断流回退占位 ===== */
 const camImgs = [
@@ -92,6 +100,14 @@ const camPhs = [
   document.getElementById('cam-a-box')!.querySelector('.mn-video-ph') as HTMLElement,
   document.getElementById('cam-b-box')!.querySelector('.mn-video-ph') as HTMLElement,
 ];
+
+function camStat(lamp: 'ok' | 'warn' | 'off', state: string): void {
+  const i = STATS.findIndex((s) => s.probe === 'cams');
+  if (i >= 0) {
+    STATS[i] = { ...STATS[i], lamp, state };
+    renderStatList(document.getElementById('mn-stats')!, STATS);
+  }
+}
 
 function attachCam(slot: 0 | 1): void {
   const img = camImgs[slot];
@@ -105,14 +121,7 @@ function attachCam(slot: 0 | 1): void {
   };
 }
 
-void (async () => {
-  const h = await probeCompanion();
-  if (!h?.ok) {
-    const i = STATS.findIndex((s) => s.probe === 'cams');
-    if (i >= 0) STATS[i] = { ...STATS[i], lamp: 'warn', state: '未启动（演示模式）' };
-    renderStatList(document.getElementById('mn-stats')!, STATS);
-    return;
-  }
+async function setupCams(): Promise<void> {
   attachCam(0);
   attachCam(1);
   // 相机在线状态（工业相机可能未接——MJPEG 流有占位帧，状态灯如实显示）
@@ -127,7 +136,7 @@ void (async () => {
       renderStatList(document.getElementById('mn-stats')!, STATS);
     }
   } catch { /* 状态查询失败不影响流 */ }
-})();
+}
 
 /* ===== 速度档（stretch_web_teleop 三件套之一；默认 3 档） ===== */
 const GEARS = ['1', '2', '3', '4', '5'];
@@ -206,12 +215,7 @@ function wsStat(lamp: 'ok' | 'warn' | 'off', state: string): void {
   }
 }
 
-void (async () => {
-  const h = await probeCompanion();
-  if (!h?.ok) {
-    wsStat('warn', '未启动（演示模式）');
-    return;
-  }
+async function setupBridge(): Promise<void> {
   connectBridge(
     (payload, src) => {
       // 上行 telemetry（pc 端发）→ 实时曲线注入
@@ -225,7 +229,7 @@ void (async () => {
     (reason) => wsStat('off', `已断开（${reason}）`),
   );
   wsStat('ok', '已连接 · 实时遥测');
-})();
+}
 
 /* ===== 关节遥测趋势（ECharts：桥在线走实时流；离线滚动演示） ===== */
 void (async () => {

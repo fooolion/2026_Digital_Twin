@@ -8,7 +8,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { mountNav, renderStatList, type StatItem } from './nav';
-import { probeCompanion } from './companion';
+import { watchCompanion } from './companion';
 import './theme.css';
 import './cockpit.css';
 
@@ -49,26 +49,18 @@ mountNav('home');
 
 renderStatList(document.getElementById('stat-list')!, SYSTEM);
 
-// 双模探测（P5-A）：本机伴生服务在线 → 实时模式（该项转绿）；否则保持演示模式占位。
-// m3：页面常开时服务可能后启动——周期重探（结果变化才重渲染），教师"先开页后启服务"流程也能转绿。
-let lastProbeOk: boolean | null = null;
-async function probeOnce(): Promise<void> {
-  const h = await probeCompanion();
+// 双模探测：统一走 companion.ts 的 watchCompanion（周期重探+变化才回调，服务后启动也能转绿）
+watchCompanion((h) => {
   const idx = SYSTEM.findIndex((s) => s.probe === 'companion');
   if (idx < 0) return;
-  const ok = !!h?.ok;
-  if (ok === lastProbeOk && lastProbeOk !== null) return; // 结果未变不重渲染
-  lastProbeOk = ok;
-  if (ok) {
-    SYSTEM[idx] = { ...SYSTEM[idx], lamp: 'ok', state: `在线 · 桥 ${h!.bridge_clients} 客户端` };
+  if (h?.ok) {
+    SYSTEM[idx] = { ...SYSTEM[idx], lamp: 'ok', state: `在线 · 桥 ${h.bridge_clients} 客户端` };
   } else {
     SYSTEM[idx] = { ...SYSTEM[idx], lamp: 'warn', state: '未启动（演示模式）' };
   }
   renderStatList(document.getElementById('stat-list')!, SYSTEM);
-}
-void probeOnce();
-window.setInterval(() => void probeOnce(), 10_000);
-addEventListener('online', () => void probeOnce());
+});
+
 
 document.getElementById('scene-list')!.innerHTML = SCENE.map((s) => `
   <li><b>${s.name}</b><span class="val">${s.value}</span></li>`).join('');
@@ -156,15 +148,42 @@ const txtEl = loadMask.querySelector('#cp-load-txt') as HTMLElement;
 void (async () => {
   const { default: URDFLoader } = await import('urdf-loader');
   try {
-    const manager = new THREE.LoadingManager();
-    manager.onProgress = (_url, loaded, total) => {
-      const pct = total > 0 ? Math.round((loaded / total) * 100) : 0;
-      barEl.style.width = `${pct}%`;
-      txtEl.textContent = `网格 ${Math.min(loaded, total)}/${total} · ${pct}%`;
+    // 传输压缩（审查杠杆 1）：构建时已预压 .gz（21MB visual → ~6.5MB 传输）。
+    // URDF 文本与 STL 全部手动 fetch .gz → 解压 → blob URL；loader 经 URL 重写消费 blob。
+    const MODEL_BASE = `${import.meta.env.BASE_URL}models`;
+    const gzBytes = async (relUrl: string): Promise<ArrayBuffer> => {
+      const r = await fetch(`${MODEL_BASE}/${relUrl}.gz`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}: ${relUrl}.gz`);
+      const stream = r.body!.pipeThrough(new DecompressionStream('gzip'));
+      return new Response(stream).arrayBuffer();
     };
-    manager.onError = (url) => { txtEl.textContent = `部分资源加载失败：${url.split('/').pop()}`; };
-    const loader = new URDFLoader(manager);
-    const r = await loader.loadAsync(`${import.meta.env.BASE_URL}models/ReBot_Arm_DM_preview.urdf?v=2`) // ?v 破缓存：URDF 更新后 loader fetch 会被浏览器启发式缓存咬住 as unknown as UrdfRobot;
+    const urdfRel = 'ReBot_Arm_DM_preview.urdf';
+    const urdfText = new TextDecoder().decode(await gzBytes(urdfRel));
+
+    const stlRefs = [...new Set([...urdfText.matchAll(/([\w./-]+\.stl)/g)].map((m) => m[1]))];
+    const total = stlRefs.length;
+    const blobMap = new Map<string, string>();
+    let done = 0;
+    await Promise.all(
+      stlRefs.map(async (rel) => {
+        const bytes = await gzBytes(rel);
+        blobMap.set(rel, URL.createObjectURL(new Blob([bytes])));
+        done += 1;
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        barEl.style.width = `${pct}%`;
+        txtEl.textContent = `网格 ${done}/${total} · ${pct}%`;
+      }),
+    );
+
+    const mgr = new THREE.LoadingManager();
+    mgr.setURLModifier((url: string) => {
+      const rel = url.split('/models/')[1]?.split('?')[0];
+      return (rel && blobMap.get(rel)) || url;
+    });
+    const loader = new URDFLoader(mgr);
+    const r = await new Promise<UrdfRobot>((res, rej) => {
+      loader.load(`${MODEL_BASE}/${urdfRel}`, (robot) => res(robot as unknown as UrdfRobot), undefined, rej);
+    });
     robot = r;
     barEl.style.width = '100%';
     txtEl.textContent = '完成';

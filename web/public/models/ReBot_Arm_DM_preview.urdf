@@ -60,12 +60,6 @@
       </geometry>
       <material name="matte_black" />
     </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="../meshes/collision/base_link.STL" />
-      </geometry>
-    </collision>
   </link>
   <link name="link1">
     <inertial>
@@ -94,12 +88,6 @@
       </geometry>
       <material name="anodized_grey" />
     </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="../meshes/collision/link1.STL" />
-      </geometry>
-    </collision>
   </link>
   <joint name="joint1" type="revolute">
     <origin xyz="-8.416E-05 0 0.08465" rpy="0 0 0" />
@@ -142,12 +130,6 @@
       </geometry>
       <material name="anodized_grey" />
     </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="../meshes/collision/link2.STL" />
-      </geometry>
-    </collision>
   </link>
   <joint name="joint2" type="revolute">
     <origin xyz="0.020084 0.031625 0.05555" rpy="-1.5708 0 0" />
@@ -190,12 +172,6 @@
       </geometry>
       <material name="anodized_grey" />
     </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="../meshes/collision/link3.STL" />
-      </geometry>
-    </collision>
   </link>
   <joint name="joint3" type="revolute">
     <origin xyz="-0.264 0 0" rpy="0 0 0" />
@@ -238,12 +214,6 @@
       </geometry>
       <material name="anodized_grey" />
     </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="../meshes/collision/link4.STL" />
-      </geometry>
-    </collision>
   </link>
   <joint name="joint4" type="revolute">
     <origin xyz="0.2426 -0.054 -0.001625" rpy="0 0 0" />
@@ -279,12 +249,6 @@
       </geometry>
       <material name="anodized_grey" />
     </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="../meshes/collision/link5.STL" />
-      </geometry>
-    </collision>
   </link>
   <joint name="joint5" type="revolute">
     <origin xyz="0.078308 -0.0375 -0.03" rpy="-1.5708 0 0" />
@@ -313,12 +277,6 @@
       </geometry>
       <material name="hardware_black" />
     </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="../meshes/collision/link6.STL" />
-      </geometry>
-    </collision>
   </link>
   <joint name="joint6" type="revolute">
     <origin xyz="0.028008 0 0.04" rpy="0 1.5708 0" />
@@ -354,12 +312,6 @@
       </geometry>
       <material name="gripper_base_metal" />
     </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="../meshes/collision/gripper_base.stl" />
-      </geometry>
-    </collision>
   </link>
   <joint name="end_joint" type="fixed">
     <origin xyz="0 0 0.15539" rpy="0 -1.5708 3.1415" />
@@ -396,12 +348,6 @@
       </geometry>
       <material name="gripper_rack_metal" />
     </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="../meshes/collision/left_finger.stl" />
-      </geometry>
-    </collision>
   </link>
   <joint name="finger_left" type="prismatic">
     <origin xyz="0 0 0" rpy="0 0 0" />
@@ -439,12 +385,6 @@
       </geometry>
       <material name="gripper_rack_metal" />
     </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="../meshes/collision/right_finger.stl" />
-      </geometry>
-    </collision>
   </link>
   <joint name="finger_right" type="prismatic">
     <origin xyz="0 0 0" rpy="0 0 0" />

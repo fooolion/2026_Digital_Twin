@@ -12,7 +12,7 @@
     <div class="ambient" aria-hidden="true"><div class="grid-bg"></div><div class="orb orb-b"></div></div>
 
     <h1 class="sr-only">运行监控</h1>
-    <main class="monitor">
+    <main class="page-shell monitor">
       <!-- 左：视频流区（主画面 + 双相机小窗） -->
       <section class="mn-left">
         <div class="hud-panel mn-main-video" id="pico-video-box">
@@ -43,7 +43,7 @@
 
       <!-- 右：急停（视觉最重·独立区） + 系统状态 + 速度档 -->
       <aside class="mn-right">
-        <section class="hud-panel mn-estop-card">
+        <section class="hud-panel hud-card mn-estop-card">
           <h2 class="hud-title">急停</h2>
           <button type="button" class="estop" id="estop-btn" aria-label="急停">
             <span class="estop-ring"></span>
@@ -52,11 +52,11 @@
           <button type="button" class="estop-reset" id="estop-reset" hidden>复位急停</button>
           <p class="estop-note t-lo">双键急停（A+B）≤5ms 切断动力 · 链路经 P5 桥接下发</p>
         </section>
-        <section class="hud-panel mn-card">
+        <section class="hud-panel hud-card mn-card">
           <h2 class="hud-title">链路状态</h2>
           <ul class="stat-list" id="mn-stats"></ul>
         </section>
-        <section class="hud-panel mn-card">
+        <section class="hud-panel hud-card mn-card">
           <h2 class="hud-title">遥操作速度</h2>
           <div class="speed-gear" id="speed-gear" role="radiogroup" aria-label="速度档位"></div>
           <p class="t-lo mn-gear-note">档位经 WebSocket 下发 PC 权威端（P5）</p>
@@ -64,7 +64,7 @@
       </aside>
 
       <!-- 底部：关节遥测趋势（ECharts；当前演示数据） -->
-      <footer class="hud-panel mn-trend">
+      <footer class="hud-panel hud-card mn-trend">
         <h2 class="hud-title">关节遥测 · J1–J6 角度曲线 <span class="t-lo" style="font-weight:400;letter-spacing:0" id="trend-src">（演示数据 · 伴生服务在线时自动切实时流）</span></h2>
         <div id="trend-chart"></div>
       </footer>

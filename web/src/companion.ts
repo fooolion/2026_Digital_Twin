@@ -54,3 +54,31 @@ export function connectBridge(
     return null;
   }
 }
+
+/** 周期重探（watch 模式）：服务后启动也能转绿；结果变化才回调（省重渲染）。
+ *  返回停止函数。interval 默认 10s；online 事件即时重探。 */
+export function watchCompanion(
+  onChange: (h: CompanionHealth | null) => void,
+  intervalMs = 10_000,
+): () => void {
+  let stopped = false;
+  const probeOnce = async (): Promise<void> => {
+    if (stopped) return;
+    const h = await probeCompanion();
+    const ok = !!h?.ok;
+    if (ok !== lastProbeOk) {
+      lastProbeOk = ok;
+      onChange(h);   // 状态翻转才回调（null→ok 的首次也算）
+    }
+  };
+  let lastProbeOk: boolean | null = null;
+  const timer = window.setInterval(() => void probeOnce(), intervalMs);
+  const onOnline = (): void => void probeOnce();
+  addEventListener('online', onOnline);
+  void probeOnce();
+  return () => { // 停止（单页常驻，骨架期不调用）
+    stopped = true;
+    window.clearInterval(timer);
+    removeEventListener('online', onOnline);
+  };
+}

@@ -12,6 +12,7 @@ import { createTcpIk } from './tcp-ik';
 import { createDemo } from './demo';
 import { mountNav, toast } from './nav';
 import './theme.css';
+import './sim.css';
 
 mountNav('sim');
 import { createJointPanel } from './panel';
@@ -27,11 +28,24 @@ const MESH_URL = `${import.meta.env.BASE_URL}models/meshes/`;
 const statusEl = document.getElementById('status') as HTMLElement;
 const setStatus = (s: string) => { statusEl.textContent = s; };
 
-async function fetchBytes(url: string): Promise<Uint8Array> {
+/** 传输压缩取数：优先 .gz（构建时预压，STL 压到 ~30%、wasm ~25%）+ 浏览器原生解压；
+ *  .gz 404（旧部署/伴生服务旧版）→ 回退原文件。 */
+async function fetchBytesCompressed(url: string): Promise<Uint8Array> {
+  try {
+    const r = await fetch(`${url}.gz`);
+    if (r.ok) {
+      const ds = new DecompressionStream('gzip');
+      const stream = r.body!.pipeThrough(ds);
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+  } catch { /* 解压/网络失败回退原文件 */ }
   const r = await fetch(url);
   if (!r.ok) throw new Error(`HTTP ${r.status}: ${url}`);
   return new Uint8Array(await r.arrayBuffer());
 }
+
+// 兼容旧名（loadMujoco 内部与网格循环共用）
+const fetchBytes = fetchBytesCompressed;
 
 /** 从 MJCF 文本提取全部网格相对路径（asset 里的 file=".stl" 属性） */
 function meshFilesIn(xml: string): string[] {
@@ -43,20 +57,24 @@ function meshFilesIn(xml: string): string[] {
 }
 
 async function main(): Promise<void> {
-  setStatus('加载 MuJoCo WASM…');
-  const mujoco: any = await loadMujoco();
-
-  setStatus('下载模型与网格（~21MB，首次稍慢）…');
-  const xmlBytes = await fetchBytes(MODEL_URL);
-  const xml = new TextDecoder().decode(xmlBytes);
+  // 加载并行化：WASM 与 XML/网格预取同时开始（原实现严格串行，
+  // 10.75MB wasm + 21MB 网格带宽不重叠——首屏多等 ~10s @10Mbps）
+  setStatus('加载 MuJoCo WASM 与模型（~8MB 传输压缩后）…');
+  const meshesPromise = fetchBytes(MODEL_URL).then(async (xmlBytes) => {
+    const xmlText = new TextDecoder().decode(xmlBytes);
+    const meshes = await Promise.all(
+      meshFilesIn(xmlText).map(async (f) => ({ f, bytes: await fetchBytes(MESH_URL + f) })),
+    );
+    return { xmlBytes, meshes };
+  });
+  const [mujoco, modelBundle] = await Promise.all([loadMujoco(), meshesPromise]);
+  const { xmlBytes, meshes } = modelBundle;
 
   const vfs = new mujoco.MjVFS();
   vfs.addBuffer(MODEL_VFS, xmlBytes);
-  await Promise.all(
-    meshFilesIn(xml).map(async (f) => {
-      vfs.addBuffer(MESH_VFS_PREFIX + f, await fetchBytes(MESH_URL + f));
-    }),
-  );
+  for (const { f, bytes } of meshes) {
+    vfs.addBuffer(MESH_VFS_PREFIX + f, bytes);
+  }
 
   setStatus('编译 MJCF…');
   const model: any = mujoco.MjModel.from_xml_path(MODEL_VFS, vfs);

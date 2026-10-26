@@ -12,21 +12,21 @@
     <div class="ambient" aria-hidden="true"><div class="grid-bg"></div><div class="orb orb-b"></div></div>
 
     <h1 class="sr-only">零件库</h1>
-    <main class="parts">
+    <main class="page-shell parts">
       <!-- 左：零件列表 + 导入 -->
       <aside class="pt-left">
-        <section class="hud-panel pt-card">
+        <section class="hud-panel hud-card pt-card">
           <h2 class="hud-title">零件列表</h2>
           <ul class="part-list" id="part-list"></ul>
         </section>
-        <section class="hud-panel pt-card">
+        <section class="hud-panel hud-card pt-card">
           <h2 class="hud-title">导入</h2>
           <button type="button" class="btn-solid pt-import" id="import-btn">从本地导入电池模型</button>
           <input type="file" id="import-file" accept=".stl,.glb,.gltf,.obj" multiple hidden />
           <p class="t-lo pt-hint">支持 STL / GLB / GLTF / OBJ（本地解析，不上传服务器）<br/>
           STEP 格式请先用 CAD 导出为 GLB/STL 后导入</p>
         </section>
-        <section class="hud-panel pt-card">
+        <section class="hud-panel hud-card pt-card">
           <h2 class="hud-title">应用到场景</h2>
           <button type="button" class="btn-ghost pt-apply" id="apply-btn">投放到仿真工作台</button>
           <p class="t-lo pt-hint">选中零件投放至仿真场景的放置位（场景尺寸定稿后开放，当前记录选择）</p>

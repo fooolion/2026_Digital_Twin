@@ -15,14 +15,14 @@
     </div>
 
     <h1 class="sr-only">总览工作台</h1>
-    <main class="cockpit">
+    <main class="page-shell cockpit">
       <!-- 左列：系统状态 + 场景配置（数据驱动，场景尺寸/电池模型未定，改配置即可） -->
       <aside class="cp-left">
-        <section class="hud-panel cp-card" id="sys-card">
+        <section class="hud-panel hud-card cp-card" id="sys-card">
           <h2 class="hud-title">系统状态</h2>
           <ul class="stat-list" id="stat-list"></ul>
         </section>
-        <section class="hud-panel cp-card">
+        <section class="hud-panel hud-card cp-card">
           <h2 class="hud-title">场景配置</h2>
           <ul class="stat-list kv" id="scene-list"></ul>
           <p class="cp-note t-lo">场景尺寸与电池建模确定后，在此更新配置即可联动全站</p>
@@ -41,11 +41,11 @@
 
       <!-- 右列：性能指标 + 当前任务 -->
       <aside class="cp-right">
-        <section class="hud-panel cp-card">
+        <section class="hud-panel hud-card cp-card">
           <h2 class="hud-title">性能指标</h2>
           <div class="kpis" id="kpi-list"></div>
         </section>
-        <section class="hud-panel cp-card" id="task-card">
+        <section class="hud-panel hud-card cp-card" id="task-card">
           <h2 class="hud-title">当前任务</h2>
           <p class="task-state"><span class="lamp"></span><b id="task-name">演示待命</b></p>
           <p class="t-mid" id="task-desc">仿真工作台的自动夹取演示已就绪，等待操作员进入。</p>

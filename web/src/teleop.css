@@ -52,8 +52,7 @@
 .tp-view {
   position: relative; overflow: hidden; min-height: 480px; padding: 0;
   background:
-    radial-gradient(ellipse 70% 60% at 50% 40%, rgba(20, 52, 96, 0.5), transparent 75%),
-    linear-gradient(180deg, #081527, #060d1a);
+    var(--vp-bg);
   user-select: none;
 }
 .tp-vr-hint {

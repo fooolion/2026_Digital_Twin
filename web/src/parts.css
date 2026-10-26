@@ -41,7 +41,7 @@
 
 /* 预览视口 */
 .pt-view { position: relative; overflow: hidden; min-height: 420px; padding: 0;
-  background: radial-gradient(ellipse 80% 70% at 50% 42%, rgba(20, 52, 96, 0.5), rgba(8, 16, 30, 0.94));
+  background: var(--vp-bg);
 }
 #part-3d { position: absolute; inset: 0; }
 #part-3d canvas { display: block; }

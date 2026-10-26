@@ -324,12 +324,30 @@ async def ws_endpoint(ws: WebSocket) -> None:
         await _HUB.leave(ws)
 
 
+class CachedStaticFiles(StaticFiles):
+    """分层 Cache-Control：带 hash 的 assets 一年 immutable；models 一天；
+    HTML 不缓存（改版即生效）。原 StaticFiles 只发 ETag，21MB STL 几天后会静默全量重拉。"""
+
+    async def get_response(self, path: str, scope):
+        resp = await super().get_response(path, scope)
+        if resp.status_code == 200:
+            # Windows 下 StaticFiles 传来的 path 是反斜杠——统一正斜杠再前缀判断
+            norm = path.replace("\\", "/")
+            if norm.startswith("assets/"):
+                resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            elif norm.startswith("models/"):
+                resp.headers["Cache-Control"] = "public, max-age=86400"
+            elif norm.endswith(".html"):
+                resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
+
 # 静态托管必须最后挂载（否则吞掉 /api 与 /ws 路由）。
 # 挂两路：带 /2026_Digital_Twin/ 前缀（dist 产物因 GitHub Pages base 而引用此前缀）
 # 与根路径（局域网设备直开 http://本机IP:8800/ 即可访问）。
 if DIST.is_dir():
-    app.mount("/2026_Digital_Twin", StaticFiles(directory=str(DIST), html=True), name="dist-prefixed")
-    app.mount("/", StaticFiles(directory=str(DIST), html=True), name="dist")
+    app.mount("/2026_Digital_Twin", CachedStaticFiles(directory=str(DIST), html=True), name="dist-prefixed")
+    app.mount("/", CachedStaticFiles(directory=str(DIST), html=True), name="dist")
 else:
     @app.get("/")
     async def no_dist() -> dict:

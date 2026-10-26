@@ -47,10 +47,9 @@ function picoState(lamp: 'ok' | 'warn' | 'off', state: string): void {
   }
 }
 
-function showPicoVideo(srcType: 'stream' | 'file'): void {
+function showPicoVideo(): void {
   picoPh.style.display = 'none';
   picoVideo.style.display = 'block';
-  void srcType;
 }
 
 async function setupPico(): Promise<void> {
@@ -63,7 +62,7 @@ async function setupPico(): Promise<void> {
     // ① 实时流（MediaMTX WHEP）
     try {
       const session = await pullWhep(cfg.whep, picoVideo);
-      showPicoVideo('stream');
+      showPicoVideo();
       picoState('ok', '实时流 · WebRTC');
       session.pc.addEventListener('connectionstatechange', () => {
         if (session.pc.connectionState === 'failed') {
@@ -81,7 +80,7 @@ async function setupPico(): Promise<void> {
     picoVideo.loop = true;
     picoVideo.muted = true; // 自动播放策略要求静音
     void picoVideo.play().catch(() => { /* 首次交互后恢复 */ });
-    showPicoVideo('file');
+    showPicoVideo();
     picoState('ok', '预录视频 · 循环播放');
     return;
   }
@@ -91,7 +90,7 @@ async function setupPico(): Promise<void> {
   picoState('warn', '待接入（预录视频/实时流均未就位）');
 }
 
-/* ===== P5-B：伴生服务在线 → 双摄像头 MJPEG 填 src + 状态灯；断流回退占位 ===== */
+/* ===== P5-B：双摄接入 + 隐藏标签页时摘流（MJPEG 不会自动停——后台持续 2-4MB/s 下载+解码） ===== */
 const camImgs = [
   document.getElementById('cam-a') as HTMLImageElement,
   document.getElementById('cam-b') as HTMLImageElement,
@@ -101,6 +100,7 @@ const camPhs = [
   document.getElementById('cam-b-box')!.querySelector('.mn-video-ph') as HTMLElement,
 ];
 
+let camsAttached = false; // 当前是否挂流（隐藏摘流/恢复挂流的状态位）
 function camStat(lamp: 'ok' | 'warn' | 'off', state: string): void {
   const i = STATS.findIndex((s) => s.probe === 'cams');
   if (i >= 0) {
@@ -120,6 +120,16 @@ function attachCam(slot: 0 | 1): void {
     camPhs[slot].style.display = 'flex';
   };
 }
+
+// 页面隐藏：摘掉 MJPEG src（img 流不会自动暂停，后台持续下载+解码 CPU）；回来再挂
+document.addEventListener('visibilitychange', () => {
+  if (!camsAttached) return;
+  if (document.hidden) {
+    camImgs.forEach((img) => img.removeAttribute('src'));
+  } else {
+    attachCam(0); attachCam(1);
+  }
+});
 
 async function setupCams(): Promise<void> {
   attachCam(0);

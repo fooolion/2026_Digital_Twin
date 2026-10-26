@@ -78,6 +78,7 @@ async function main(): Promise<void> {
 
   setStatus('编译 MJCF…');
   const model: any = mujoco.MjModel.from_xml_path(MODEL_VFS, vfs);
+  vfs.delete(); // 编译完成，MjVFS 里 ~21MB 网格 buffer 已拷入模型——释放堆内存
   const data: any = new mujoco.MjData(model);
   mujoco.mj_forward(model, data);
   (window as any).__mj = { mujoco, model, data }; // 调试句柄（控制台可现场检查）

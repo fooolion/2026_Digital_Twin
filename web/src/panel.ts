@@ -11,7 +11,6 @@ export interface JointSpec {
 }
 
 export interface JointPanel {
-  root: HTMLElement;
   /** 模式徽标：true=手动（橙）/ false=TCP 拖拽（绿） */
   setMode(manual: boolean): void;
   /** 夹爪按钮 active 态 */
@@ -208,7 +207,6 @@ export function createJointPanel(
   });
 
   return {
-    root: mount,
     setMode(manual: boolean): void {
       modeEl.classList.toggle('jp-manual', manual);
       modeText.textContent = manual ? '手动' : 'TCP 拖拽';

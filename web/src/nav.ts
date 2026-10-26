@@ -13,6 +13,9 @@ const LINKS = [
   { href: 'about.html', key: 'about', label: '关于', no: null },
 ];
 
+/** 页面 key → href 单源（各页流程条/跳转按钮复用，勿再手写文件名） */
+export const PAGE_HREF: Record<string, string> = Object.fromEntries(LINKS.map((l) => [l.key, l.href]));
+
 export function mountNav(active: string): void {
   const host = document.getElementById('site-nav');
   if (!host) return;

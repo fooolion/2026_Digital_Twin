@@ -77,6 +77,12 @@ body {
   text-shadow: 0 0 18px rgba(0, 212, 255, 0.45);
 }
 
+/* 三维/视频视口的径向底色（cockpit/parts/teleop 三页视口消费；只提令牌不提组件——
+   三处 border/shadow/附加声明各不相同，组件化会引入覆盖噪音） */
+:root {
+  --vp-bg: radial-gradient(ellipse 80% 70% at 50% 42%, rgba(20, 52, 96, 0.5), rgba(8, 16, 30, 0.93));
+}
+
 /* 状态列表（跨页组件：总览/监控/遥操作三页消费；JS 侧配套 renderStatList 见 nav.ts） */
 .stat-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 11px; }
 .stat-list li { display: flex; align-items: center; gap: 9px; font-size: 13px; }

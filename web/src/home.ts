@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { mountNav, renderStatList, type StatItem } from './nav';
 import { watchCompanion } from './companion';
+import { PAGE_HREF } from './nav';
 import './theme.css';
 import './cockpit.css';
 
@@ -68,9 +69,9 @@ document.getElementById('scene-list')!.innerHTML = SCENE.map((s) => `
 document.getElementById('kpi-list')!.innerHTML = KPIS.map((k) => `
   <div class="kpi"><b class="kpi-num">${k.v}</b><span>${k.u}</span></div>`).join('');
 
-const FLOW_HREF: Record<string, string> = { workshop: 'workshop.html', sim: 'sim.html', teleop: 'teleop.html', live: 'live.html' };
+
 document.getElementById('flow-bar')!.innerHTML = FLOW.map((f) => `
-  <a class="flow-step2 ${f.state}" href="${FLOW_HREF[f.key]}">
+  <a class="flow-step2 ${f.state}" href="${PAGE_HREF[f.key]}">
     <span class="step-no">${f.no}</span>
     <span class="fs-txt"><span>${f.title}</span><small>${f.sub}</small></span>
   </a>`).join('');
@@ -213,6 +214,7 @@ function resize(): void {
   camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize);
+new ResizeObserver(resize).observe(host); // 滚动条出现压缩容器宽时 window resize 不触发（与 workshop 同款）
 resize();
 
 // 自动取景（两段）：① 密采样摆动包络（16 相位并集）定距离，保证摆动全程不出画面；

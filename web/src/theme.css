@@ -197,7 +197,7 @@ a.active .step-no { background: var(--color-hudglow); color: #04121f; box-shadow
 /* 页面外壳（跨页组件：四页 main 的 grid 容器骨架；页面 css 只写 grid-template 差异） */
 .page-shell {
   min-height: 100vh;
-  padding: 64px 16px 16px;
+  padding: 58px 16px 12px;
   box-sizing: border-box;
   max-width: 1840px;
   margin: 0 auto;

@@ -41,7 +41,7 @@
 .mn-video-ph.sm span { font-size: 10px; }
 .mn-video-ph.sm .ph-ico { display: none; }
 .mn-fs-btn {
-  align-self: flex-end; margin: -30px 12px 6px 0; position: relative; z-index: 2;
+  align-self: flex-end; margin: 0 12px 6px 0; position: relative; z-index: 2;
   font: inherit; font-size: 11.5px; cursor: pointer; color: #9fd8ff;
   padding: 5px 12px; border-radius: 4px;
   background: rgba(4,18,34,.65); border: 1px solid rgba(0,212,255,.3);
@@ -49,8 +49,33 @@
 }
 .mn-fs-btn:hover { border-color: rgba(0,212,255,.6); color: #d8f1ff; }
 
+/* 实时力矩（P5-D telemetry.tau 驱动）：并排两列（7 项 = 4+3），紧凑不占高 */
+.torque-list {
+  list-style: none; margin: 10px 0 0; padding: 0;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px;
+}
+.torque-list li { display: flex; align-items: center; gap: 7px; font-size: 11px; min-width: 0; }
+.torque-list .tq-name {
+  flex: none; width: 30px; color: rgba(255,255,255,.75);
+  font-family: var(--font-mono); font-size: 10px;
+}
+.torque-list .tq-bar {
+  flex: 1; height: 5px; border-radius: 3px; background: rgba(0, 212, 255, 0.10);
+  overflow: hidden; min-width: 0;
+}
+.torque-list .tq-fill {
+  height: 100%; width: 0%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--color-hud), var(--color-hudglow));
+  transition: width .2s ease;
+}
+.torque-list .tq-val {
+  flex: none; width: 54px; text-align: right; font-variant-numeric: tabular-nums;
+  color: rgba(255,255,255,.65); font-family: var(--font-mono); font-size: 10px;
+}
+.torque-list .tq-bar.hot .tq-fill { background: linear-gradient(90deg, #ff7a45, var(--color-alarm)); }
+
 /* 双相机：竖向并排（中列，撑满列高） */
-.mn-cams { display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0; }
+.mn-cams { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
 .mn-cam { position: relative; padding: 0; flex: 1; min-height: 0; overflow: hidden; }
 .mn-cam img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 
@@ -113,7 +138,7 @@
 
 /* 底部趋势 */
 .mn-trend { grid-column: 1 / -1; padding: 16px 18px 12px; }
-#trend-chart { width: 100%; height: 156px; }
+#trend-chart { width: 100%; height: 132px; }
 
 /* 窄屏降级 */
 @media (max-width: 1180px) {

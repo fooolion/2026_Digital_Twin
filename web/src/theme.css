@@ -16,6 +16,10 @@
   --color-hudglow: #00d4ff;   /* 强调·青（发光/HUD 角标/KPI 数字） */
   --color-alarm: #ff4d4f;     /* 告警红（急停/超限，配闪烁） */
   --color-hudpanel: rgba(13, 42, 79, 0.85); /* HUD 面板半透明底（.hud-panel 消费） */
+  --font-mono: 'JetBrains Mono', Consolas, ui-monospace, 'Microsoft YaHei', 'PingFang SC', monospace; /* 等宽数据字（含中文回退——勿直接写 monospace 收尾，会命中 Windows SimSun） */
+  --radius-panel: 12px;  /* HUD 面板圆角 */
+  --radius-btn: 10px;    /* 按钮圆角 */
+  --radius-sm: 6px;      /* 小件（标签/徽章）圆角 */
 }
 
 html { color-scheme: dark; scroll-behavior: smooth; }
@@ -31,30 +35,30 @@ body {
 .hud-panel {
   position: relative;
   background: linear-gradient(180deg, var(--color-hudpanel), rgba(10, 26, 47, 0.55));
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(0, 212, 255, 0.28);
-  box-shadow: 0 0 14px rgba(0, 212, 255, 0.10), inset 0 0 22px rgba(0, 60, 120, 0.18);
-  border-radius: 4px;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 212, 255, 0.24);
+  box-shadow: 0 0 18px rgba(0, 212, 255, 0.08), inset 0 0 22px rgba(0, 60, 120, 0.14);
+  border-radius: var(--radius-panel);
 }
 .hud-panel::before, .hud-panel::after {
   content: ""; position: absolute; width: 100%; height: 100%;
-  top: 0; left: 0; pointer-events: none; border-radius: 4px;
+  top: 0; left: 0; pointer-events: none; border-radius: var(--radius-panel);
 }
-/* 四角括号：每个伪元素画对角两角（横线+竖线各一） */
+/* 四角括号：圆角化后角标内收至 10px（贴着圆弧内侧） */
 .hud-panel::before {
   background:
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 6px top 6px / 12px 2px,
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 6px top 6px / 2px 12px,
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 6px bottom 6px / 12px 2px,
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 6px bottom 6px / 2px 12px;
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 10px top 10px / 12px 2px,
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 10px top 10px / 2px 12px,
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 10px bottom 10px / 12px 2px,
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 10px bottom 10px / 2px 12px;
   background-repeat: no-repeat;
 }
 .hud-panel::after {
   background:
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 6px top 6px / 12px 2px,
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 6px top 6px / 2px 12px,
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 6px bottom 6px / 12px 2px,
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 6px bottom 6px / 2px 12px;
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 10px top 10px / 12px 2px,
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 10px top 10px / 2px 12px,
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 10px bottom 10px / 12px 2px,
+    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 10px bottom 10px / 2px 12px;
   background-repeat: no-repeat;
 }
 
@@ -96,7 +100,7 @@ body {
 .vp-tag {
   position: absolute; top: 12px; left: 12px; z-index: 2;
   font-size: 11px; letter-spacing: .08em; color: rgba(0, 212, 255, 0.85);
-  padding: 5px 10px; border: 1px solid rgba(0, 212, 255, 0.30); border-radius: 3px;
+  padding: 5px 10px; border: 1px solid rgba(0, 212, 255, 0.30); border-radius: var(--radius-sm);
   background: rgba(4, 18, 34, 0.55); backdrop-filter: blur(4px);
 }
 
@@ -206,7 +210,7 @@ a.active .step-no { background: var(--color-hudglow); color: #04121f; box-shadow
 }
 .btn-solid {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 12px 26px; border-radius: 12px; text-decoration: none;
+  padding: 12px 26px; border-radius: var(--radius-btn); text-decoration: none;
   font-size: 14px; font-weight: 600; color: #06281a;
   background: linear-gradient(135deg, #59ffb0, #2ee584);
   box-shadow: 0 6px 28px rgba(46, 229, 132, 0.30);
@@ -216,7 +220,7 @@ a.active .step-no { background: var(--color-hudglow); color: #04121f; box-shadow
 .btn-solid:active { transform: translateY(0) scale(.98); }
 .btn-ghost {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 12px 26px; border-radius: 12px; text-decoration: none;
+  padding: 12px 26px; border-radius: var(--radius-btn); text-decoration: none;
   font-size: 14px; color: var(--color-mist);
   background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);

@@ -87,6 +87,14 @@ body {
 .stat-list li .val.on { color: var(--color-accsoft); }
 .stat-list li .val.warn { color: var(--color-warn); }
 
+/* 列容器堆叠（跨页组件：左右 aside 的面板均分列高，消除列尾空白） */
+.col-stack { display: flex; flex-direction: column; }
+.col-stack > .hud-panel { flex: 1 1 auto; display: flex; flex-direction: column; }
+.col-stack > .hud-panel > .hud-title { flex: none; }
+/* 卡内内容区弹性填充：列表/KPI 网格均匀分布，消除拉伸后的卡内空白 */
+.col-stack > .hud-panel > .stat-list,
+.col-stack > .hud-panel > .kpis { flex: 1 1 auto; align-content: space-evenly; }
+
 /* 视口标签（跨页组件：各页 3D/视频视口左上角的悬浮标签） */
 .vp-tag {
   position: absolute; top: 12px; left: 12px; z-index: 2;
@@ -190,6 +198,19 @@ a.active .step-no { background: var(--color-hudglow); color: #04121f; box-shadow
 }
 
 /* ===== 通用组件 ===== */
+
+/* 页面外壳（跨页组件：四页 main 的 grid 容器骨架；页面 css 只写 grid-template 差异） */
+.page-shell {
+  min-height: 100vh;
+  padding: 64px 16px 16px;
+  box-sizing: border-box;
+  max-width: 1840px;
+  margin: 0 auto;
+  gap: 12px;
+}
+/* HUD 卡片内边距（配 .hud-panel 用） */
+.hud-card { padding: 14px 14px 12px; }
+
 .glass {
   background: rgba(15, 20, 30, 0.60);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);

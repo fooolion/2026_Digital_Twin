@@ -3,12 +3,6 @@
   display: grid;
   grid-template-columns: 300px 1fr 320px;
   grid-template-rows: 1fr;
-  gap: 14px;
-  min-height: 100vh;
-  padding: 70px 18px 18px;
-  box-sizing: border-box;
-  max-width: 1720px;
-  margin: 0 auto;
 }
 .tp-left, .tp-right { display: flex; flex-direction: column; gap: 14px; }
 .tp-card { padding: 16px 16px 14px; }

@@ -59,6 +59,11 @@
   border-color: rgba(255, 77, 79, 0.35);
   box-shadow: 0 8px 28px rgba(2, 8, 20, 0.45), 0 0 20px rgba(255, 77, 79, 0.07), inset 0 1px 0 rgba(255, 120, 120, 0.08);
 }
+/* 急停卡 hover 覆盖 .hud-panel:hover 的青色提亮——警示卡必须保持红语义 */
+.mn-estop-card:hover {
+  border-color: rgba(255, 77, 79, 0.6);
+  box-shadow: 0 8px 32px rgba(2, 8, 20, 0.5), 0 0 28px rgba(255, 77, 79, 0.16), inset 0 1px 0 rgba(255, 120, 120, 0.12);
+}
 .estop {
   position: relative; width: 108px; height: 108px; margin: 16px 0 12px;
   border-radius: 50%; cursor: pointer; background: none; border: none; padding: 0;

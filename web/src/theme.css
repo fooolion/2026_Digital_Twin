@@ -46,7 +46,7 @@ body {
   border-color: rgba(0, 212, 255, 0.32);
   box-shadow: 0 8px 32px rgba(2, 8, 20, 0.5), 0 0 24px rgba(0, 212, 255, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
-/* 顶缘高光线（::before 专属；::after 留空备用）——现代玻璃卡的签名细节 */
+/* 顶缘高光线——现代玻璃卡的签名细节 */
 .hud-panel::before {
   content: ""; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);

@@ -16,20 +16,29 @@
 
     <h1 class="sr-only">总览工作台</h1>
     <main class="page-shell cockpit">
-      <!-- 左列：系统状态 + 场景配置（数据驱动，场景尺寸/电池模型未定，改配置即可） -->
-      <aside class="cp-left col-stack">
+      <!-- 左栏（单侧栏）：系统状态 → 性能指标 → 场景配置 → 当前任务 -->
+      <aside class="cp-side">
         <section class="hud-panel hud-card cp-card" id="sys-card">
           <h2 class="hud-title">系统状态</h2>
           <ul class="stat-list" id="stat-list"></ul>
+        </section>
+        <section class="hud-panel hud-card cp-card">
+          <h2 class="hud-title">性能指标</h2>
+          <div class="kpis" id="kpi-list"></div>
         </section>
         <section class="hud-panel hud-card cp-card">
           <h2 class="hud-title">场景配置</h2>
           <ul class="stat-list kv" id="scene-list"></ul>
           <p class="cp-note t-lo">场景尺寸与电池建模确定后，在此更新配置即可联动全站</p>
         </section>
+        <section class="hud-panel hud-card cp-card" id="task-card">
+          <h2 class="hud-title">当前任务</h2>
+          <p class="task-state"><span class="lamp"></span><b id="task-name">演示待命</b></p>
+          <p class="t-mid" id="task-desc">仿真工作台的自动夹取演示已就绪，等待操作员进入。</p>
+        </section>
       </aside>
 
-      <!-- 中央：三维视口（官方 URDF 真机模型 ~21MB 带进度条；完整仿真进入②） -->
+      <!-- 右侧：三维视口（官方真机 URDF；完整仿真进入②） -->
       <section class="cp-center">
         <div id="cockpit-3d" aria-label="机械臂三维预览视口"></div>
         <div class="vp-tag">3D 视口 · 预览模式（左键旋转 · 右键平移 · 滚轮缩放）</div>
@@ -38,19 +47,6 @@
           <a class="btn-ghost" href="live.html">运行监控</a>
         </div>
       </section>
-
-      <!-- 右列：性能指标 + 当前任务 -->
-      <aside class="cp-right col-stack">
-        <section class="hud-panel hud-card cp-card">
-          <h2 class="hud-title">性能指标</h2>
-          <div class="kpis" id="kpi-list"></div>
-        </section>
-        <section class="hud-panel hud-card cp-card" id="task-card">
-          <h2 class="hud-title">当前任务</h2>
-          <p class="task-state"><span class="lamp"></span><b id="task-name">演示待命</b></p>
-          <p class="t-mid" id="task-desc">仿真工作台的自动夹取演示已就绪，等待操作员进入。</p>
-        </section>
-      </aside>
 
       <!-- 底部：四步工作流进度（对应顶部导航①-④） -->
       <footer class="cp-flow hud-panel">

@@ -1,10 +1,13 @@
 /* ===== tp·遥操作（R6）：左联锁 + 中 VR 视口（手柄 SVG）+ 右映射/日志 ===== */
 .teleop {
   display: grid;
-  grid-template-columns: 300px 1fr 320px;
-  grid-template-rows: 1fr;
+  grid-template-columns: 300px 1fr;
+  grid-template-rows: minmax(0, 1fr) auto;  /* 视口占满 + 映射/日志一行放下（一屏不滚动） */
 }
-.tp-left, .tp-right { display: flex; flex-direction: column; gap: 14px; }
+.tp-left { display: flex; flex-direction: column; gap: 14px; }
+.tp-bottom { grid-column: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tp-bottom .tp-card { padding: 12px 14px 10px; }
+.tp-log { max-height: 150px; }
 .tp-card { padding: 16px 16px 14px; }
 
 /* ── 安全联锁卡 ── */
@@ -100,4 +103,5 @@
 @media (max-width: 1180px) {
   .teleop { grid-template-columns: 1fr; padding-top: 66px; }
   .tp-view { min-height: 440px; order: -1; }
+  .tp-bottom { grid-column: auto; grid-template-columns: 1fr; }
 }

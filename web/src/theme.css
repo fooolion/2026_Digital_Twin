@@ -89,11 +89,6 @@ body {
 
 /* 列容器堆叠（跨页组件：左右 aside 的面板均分列高，消除列尾空白） */
 .col-stack { display: flex; flex-direction: column; }
-.col-stack > .hud-panel { flex: 1 1 auto; display: flex; flex-direction: column; }
-.col-stack > .hud-panel > .hud-title { flex: none; }
-/* 卡内内容区弹性填充：列表/KPI 网格均匀分布，消除拉伸后的卡内空白 */
-.col-stack > .hud-panel > .stat-list,
-.col-stack > .hud-panel > .kpis { flex: 1 1 auto; align-content: space-evenly; }
 
 /* 视口标签（跨页组件：各页 3D/视频视口左上角的悬浮标签） */
 .vp-tag {

@@ -196,6 +196,36 @@ estopReset.addEventListener('click', () => {
   toast('急停已复位');
 });
 
+/* ===== P5-D：实时力矩面板（telemetry.tau 驱动；7 轴 = J1-J6 + 夹爪） ===== */
+const TQ_NAMES = ['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'Grip'];
+const TQ_MAX = 30; // 满量程 N·m（J1-J3 27+、J4-J6 7——统一 30 刻度下小轴用热色分段）
+const tqListEl = document.getElementById('torque-list')!;
+tqListEl.innerHTML = TQ_NAMES.map((n, i) => `
+  <li>
+    <span class="tq-name">${n}</span>
+    <span class="tq-bar" id="tq-bar-${i}"><span class="tq-fill" id="tq-fill-${i}"></span></span>
+    <span class="tq-val" id="tq-val-${i}">-- N·m</span>
+  </li>`).join('');
+
+function updateTorque(tau: number[] | null): void {
+  for (let i = 0; i < 7; i++) {
+    const fill = document.getElementById(`tq-fill-${i}`);
+    const val = document.getElementById(`tq-val-${i}`);
+    if (!fill || !val) continue;
+    if (tau && tau[i] !== undefined && Number.isFinite(tau[i])) {
+      const v = Math.abs(tau[i]);
+      const pct = Math.min(100, (v / TQ_MAX) * 100);
+      fill.style.width = `${pct}%`;
+      fill.parentElement?.classList.toggle('hot', pct > 70);
+      val.textContent = `${tau[i].toFixed(1)} N·m`;
+    } else {
+      fill.style.width = '0%';
+      val.textContent = '-- N·m';
+    }
+  }
+}
+updateTorque(null); // 初始占位
+
 /* ===== 全屏（兼容 Safari 的 webkit 前缀；无 API 时兜底 toast 可达） ===== */
 type FsElement = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
 document.getElementById('fs-btn')!.addEventListener('click', () => {
@@ -227,18 +257,28 @@ function wsStat(lamp: 'ok' | 'warn' | 'off', state: string): void {
 
 async function setupBridge(): Promise<void> {
   connectBridge(
-    (payload, src) => {
-      // 上行 telemetry（pc 端发）→ 实时曲线注入
+    (payload, src, ts) => {
+      // 上行 telemetry（pc 端发）→ 实时曲线 + 力矩面板；F1 双保险：补发的陈旧帧（>3s）丢弃
       if (src === 'telemetry' && payload && typeof payload === 'object' && 'j' in payload) {
-        const j = (payload as { j: unknown }).j;
-        if (Array.isArray(j) && j.length >= 6 && j.every((v) => typeof v === 'number')) {
+        const p = payload as { j: unknown; tau?: unknown };
+        const fresh = ts && Date.now() / 1000 - ts < 3;
+        const j = p.j;
+        if (Array.isArray(j) && j.length >= 6 && j.every((v) => typeof v === 'number' && Number.isFinite(v)) && fresh) {
           feedReal?.(j as number[]);
+        }
+        if (Array.isArray(p.tau) && p.tau.length >= 7 && p.tau.every((v) => typeof v === 'number' && Number.isFinite(v)) && fresh) {
+          updateTorque(p.tau as number[]);
         }
       }
     },
-    (reason) => wsStat('off', `已断开（${reason}）`),
+    (reason) => {
+      wsStat('off', `已断开（${reason}）`);
+      updateTorque(null);
+      // F3：桥断开 → 5s 后重探重连（服务重启场景自愈）
+      window.setTimeout(() => void setupBridge(), 5000);
+    },
+    () => wsStat('ok', '已连接'), // F2：welcome 收到才转绿
   );
-  wsStat('ok', '已连接 · 实时遥测');
 }
 
 /* ===== 关节遥测趋势（ECharts：桥在线走实时流；离线滚动演示） ===== */

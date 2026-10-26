@@ -78,8 +78,9 @@ async def main() -> None:
                     while True:
                         await ws.send(json.dumps({"type": "telemetry", "payload": {
                             "j": [round(20 * ((time.time() * 0.5 + i * 0.3) % 2 - 1), 2) for i in range(6)],
+                            "tau": [round(abs(8 * ((time.time() * 0.7 + i * 0.5) % 2 - 1)) + 0.5, 1) for i in range(7)],
                         }}))
-                        await asyncio.sleep(0.2)  # 5Hz 模拟遥测
+                        await asyncio.sleep(0.2)  # 5Hz 模拟遥测（j=关节角 + tau=力矩）
 
                 tele_task = asyncio.create_task(telemetry_loop())
                 try:

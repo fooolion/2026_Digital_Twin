@@ -25,8 +25,8 @@
             <b>预录视频待放入</b>
             <span>P5 接入 OBS → MediaMTX → WebRTC 实时流</span>
           </div>
-          <button type="button" class="mn-fs-btn" id="fs-btn" title="全屏"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M8 3H5a2 2 0 0 0-2 2v3m21-3V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg> 全屏</button>
         </div>
+        <button type="button" class="mn-fs-btn" id="fs-btn" title="全屏"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M8 3H5a2 2 0 0 0-2 2v3m21-3V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg> 全屏</button>
       </section>
 
       <!-- 中：双相机竖向并排 -->
@@ -62,6 +62,11 @@
           <h2 class="hud-title">遥操作速度</h2>
           <div class="speed-gear" id="speed-gear" role="radiogroup" aria-label="速度档位"></div>
           <p class="t-lo mn-gear-note">档位经 WebSocket 下发 PC 权威端（P5）</p>
+        </section>
+        <section class="hud-panel hud-card mn-card">
+          <h2 class="hud-title">实时力矩 · 6+1 轴</h2>
+          <ul class="torque-list" id="torque-list"></ul>
+          <p class="t-lo mn-gear-note">来源：pc 端 telemetry（P5-D 桥）；真机接入后为 tau_act 实测值</p>
         </section>
       </aside>
 

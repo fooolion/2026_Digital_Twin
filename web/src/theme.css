@@ -35,31 +35,22 @@ body {
 .hud-panel {
   position: relative;
   background: linear-gradient(180deg, var(--color-hudpanel), rgba(10, 26, 47, 0.55));
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(0, 212, 255, 0.24);
-  box-shadow: 0 0 18px rgba(0, 212, 255, 0.08), inset 0 0 22px rgba(0, 60, 120, 0.14);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(148, 184, 220, 0.14);
+  box-shadow: 0 8px 28px rgba(2, 8, 20, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   border-radius: var(--radius-panel);
+  transition: border-color .25s ease, box-shadow .25s ease;
 }
-.hud-panel::before, .hud-panel::after {
-  content: ""; position: absolute; width: 100%; height: 100%;
-  top: 0; left: 0; pointer-events: none; border-radius: var(--radius-panel);
+/* hover：边框提亮 + 微光增强（卡片"活"起来的反馈） */
+.hud-panel:hover {
+  border-color: rgba(0, 212, 255, 0.32);
+  box-shadow: 0 8px 32px rgba(2, 8, 20, 0.5), 0 0 24px rgba(0, 212, 255, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
-/* 四角括号：圆角化后角标内收至 10px（贴着圆弧内侧） */
+/* 顶缘高光线（::before 专属；::after 留空备用）——现代玻璃卡的签名细节 */
 .hud-panel::before {
-  background:
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 10px top 10px / 12px 2px,
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 10px top 10px / 2px 12px,
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 10px bottom 10px / 12px 2px,
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 10px bottom 10px / 2px 12px;
-  background-repeat: no-repeat;
-}
-.hud-panel::after {
-  background:
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 10px top 10px / 12px 2px,
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) right 10px top 10px / 2px 12px,
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 10px bottom 10px / 12px 2px,
-    linear-gradient(var(--color-hudglow), var(--color-hudglow)) left 10px bottom 10px / 2px 12px;
-  background-repeat: no-repeat;
+  content: ""; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+  pointer-events: none;
 }
 
 /* 面板标题条：左侧竖条装饰（大屏惯例） */

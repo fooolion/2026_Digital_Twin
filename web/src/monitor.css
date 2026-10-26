@@ -1,15 +1,16 @@
 /* ===== mn·运行监控（R4）：左视频流 + 右急停/速度档 + 底部遥测 ===== */
 .monitor {
   display: grid;
-  grid-template-columns: 1fr 320px;
-  grid-template-rows: 1fr auto;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) 320px;
+  grid-template-rows: minmax(0, 1fr) auto;
 }
-.mn-left { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.mn-right { display: flex; flex-direction: column; gap: 14px; }
-.mn-card { padding: 16px 16px 14px; }
+.mn-left { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.mn-mid { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.mn-right { display: flex; flex-direction: column; gap: 12px; }
+.mn-card { padding: 14px 14px 12px; }
 
-/* 主视频区（16:9 自适应） */
-.mn-main-video { position: relative; flex: 1; min-height: 220px; overflow: hidden; padding: 0; }
+/* 主视频区（左侧大半，占满列高） */
+.mn-main-video { position: relative; flex: 1; min-height: 0; overflow: hidden; padding: 0; }
 .mn-main-video video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #060d1a; }
 .mn-main-video:fullscreen, .mn-main-video:-webkit-full-screen { border-radius: 0; }
 .mn-video-tag {
@@ -43,9 +44,9 @@
 }
 .mn-fs-btn:hover { border-color: rgba(0,212,255,.6); color: #d8f1ff; }
 
-/* 双相机小窗 */
-.mn-cams { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.mn-cam { position: relative; padding: 0; aspect-ratio: 16 / 9; overflow: hidden; }
+/* 双相机：竖向并排（中列，撑满列高） */
+.mn-cams { display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0; }
+.mn-cam { position: relative; padding: 0; flex: 1; min-height: 0; overflow: hidden; }
 .mn-cam img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 
 /* 急停：全页视觉最重的元素（stretch_web_teleop 规范：急停独立成区） */
@@ -110,7 +111,9 @@
 #trend-chart { width: 100%; height: 156px; }
 
 /* 窄屏降级 */
-@media (max-width: 1080px) {
-  .monitor { grid-template-columns: 1fr; grid-template-rows: auto auto auto; padding-top: 66px; }
+@media (max-width: 1180px) {
+  .monitor { grid-template-columns: 1fr; padding-top: 66px; }
+  .mn-mid { flex-direction: row; }
+  .mn-cam { min-height: 150px; }
   .mn-trend { grid-column: auto; }
 }

@@ -13,7 +13,7 @@
 
     <h1 class="sr-only">运行监控</h1>
     <main class="page-shell monitor">
-      <!-- 左：视频流区（主画面 + 双相机小窗） -->
+      <!-- 左：PICO · Unity VR 主画面（大半区域） -->
       <section class="mn-left">
         <div class="hud-panel mn-main-video" id="pico-video-box">
           <div class="mn-video-tag"><span class="lamp lamp-warn"></span>PICO · Unity VR 画面</div>
@@ -27,17 +27,19 @@
           </div>
           <button type="button" class="mn-fs-btn" id="fs-btn" title="全屏"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M8 3H5a2 2 0 0 0-2 2v3m21-3V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg> 全屏</button>
         </div>
-        <div class="mn-cams">
-          <div class="hud-panel mn-cam" id="cam-a-box">
-            <div class="mn-video-tag sm"><span class="lamp lamp-warn"></span>相机 A · 工位全景</div>
-            <img id="cam-a" alt="相机 A 画面占位" />
-            <div class="mn-video-ph sm"><b>画面待接入</b><span>MJPEG · P5</span></div>
-          </div>
-          <div class="hud-panel mn-cam" id="cam-b-box">
-            <div class="mn-video-tag sm"><span class="lamp lamp-warn"></span>相机 B · 特写位</div>
-            <img id="cam-b" alt="相机 B 画面占位" />
-            <div class="mn-video-ph sm"><b>画面待接入</b><span>MJPEG · P5</span></div>
-          </div>
+      </section>
+
+      <!-- 中：双相机竖向并排 -->
+      <section class="mn-mid">
+        <div class="hud-panel mn-cam" id="cam-a-box">
+          <div class="mn-video-tag sm"><span class="lamp lamp-warn"></span>相机 A · 工位全景</div>
+          <img id="cam-a" alt="相机 A 画面占位" />
+          <div class="mn-video-ph sm"><b>画面待接入</b><span>MJPEG · P5</span></div>
+        </div>
+        <div class="hud-panel mn-cam" id="cam-b-box">
+          <div class="mn-video-tag sm"><span class="lamp lamp-warn"></span>相机 B · 特写位</div>
+          <img id="cam-b" alt="相机 B 画面占位" />
+          <div class="mn-video-ph sm"><b>画面待接入</b><span>MJPEG · P5</span></div>
         </div>
       </section>
 

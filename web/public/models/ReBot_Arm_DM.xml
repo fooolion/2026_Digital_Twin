@@ -49,6 +49,13 @@
     <!-- 齿条：与小齿轮啮合的齿条（URDF visual；仅视觉，无碰撞） -->
     <mesh name="lf_rack" file="visual/colored_left_finger_rack_metal.stl"/>
     <mesh name="rf_rack" file="visual/colored_right_finger_rack_metal.stl"/>
+
+    <!-- 真实电池模组（A11，2026-10-28 由 SLDPRT 导出）：四件共享统一模型坐标，
+         单位 mm → scale 0.001 转 m。四件在同一 body 内按各自 STL 坐标自组装。 -->
+    <mesh name="battery_lower"  file="battery/battery-lower.stl"    scale="0.001 0.001 0.001"/>
+    <mesh name="battery_upper1" file="battery/battery-upper-1.stl"  scale="0.001 0.001 0.001"/>
+    <mesh name="battery_upper2" file="battery/battery-upper-2.stl"  scale="0.001 0.001 0.001"/>
+    <mesh name="battery_upper3" file="battery/battery-upper-3.stl"  scale="0.001 0.001 0.001"/>
   </asset>
 
   <!-- ===== 默认值 + 每连杆碰撞位 (contype/conaffinity) =====
@@ -217,11 +224,22 @@
       </body>
     </body>
   
-  <!-- ===== 网页演示场景（P4）：工作台面 + 占位电池样件 =====
-       占位样件为 40mm 立方（demo_cube）；将来拿到真电池模型/场景尺寸后，
-       换掉这个 body 的 geom 并保持 body 名不变，演示控制器即可无缝对接。 -->
+  <!-- ===== 网页演示场景（P4→A11）：工作台面 + 真实电池模组 + 演示样件 =====
+       电池模组：底座中心正前方 0.44m（初始姿态夹爪朝向 +X，底座中心到电池中心 44cm）。
+       模型坐标 y 轴 = 堆叠方向 → 世界 z（quat 0.5 0.5 0.5 0.5 = 循环换轴 x→y→z→x），
+       模型 y 范围 [-0.010, 0.180] → body z=0.010 使底面贴桌面，几何中心落在 (0.44, 0, 0.095)。
+       纯视觉（contype=0）：凸包碰撞比真件胖，会卡住演示路径——阶段二做"拆一件"时
+       再给可拆件建精准碰撞。
+       演示样件（demo_cube，40mm 可抓样件）：摆在电池近侧前方（0.30m），默认机位不被模组遮挡；
+       demo.ts 按 body 名读取出生点，demo 逻辑零改动。 -->
     <geom name="web_table" type="plane" size="0.6 0.6 0.05" rgba="0.16 0.20 0.27 1" contype="1024" conaffinity="1024"/>
-    <body name="demo_cube" pos="0.34 0.02 0.021">
+    <body name="battery_module" pos="0.44 0 0.010" quat="0.5 0.5 0.5 0.5">
+      <geom name="battery_lower_geom"  type="mesh" mesh="battery_lower"  rgba="0.62 0.65 0.68 1" contype="0" conaffinity="0"/>
+      <geom name="battery_upper1_geom" type="mesh" mesh="battery_upper1" rgba="0.30 0.34 0.38 1" contype="0" conaffinity="0"/>
+      <geom name="battery_upper2_geom" type="mesh" mesh="battery_upper2" rgba="0.30 0.34 0.38 1" contype="0" conaffinity="0"/>
+      <geom name="battery_upper3_geom" type="mesh" mesh="battery_upper3" rgba="0.30 0.34 0.38 1" contype="0" conaffinity="0"/>
+    </body>
+    <body name="demo_cube" pos="0.30 -0.16 0.021">
       <freejoint/>
       <geom name="demo_cube_geom" type="box" size="0.02 0.02 0.02" rgba="0.16 0.84 0.55 1" contype="1024" conaffinity="1024" friction="1 0.005 0.0001"/>
     </body>

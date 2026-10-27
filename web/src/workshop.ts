@@ -105,7 +105,43 @@ const builtinTemplate = (() => {
   mesh.add(edges);
   return mesh;
 })();
-parts.push({ id: 'builtin-cube', name: '占位电池样件', fmt: 'BUILT-IN', tris: 12, meta: '正方体', build: () => builtinTemplate.clone(true) });
+parts.push({ id: 'builtin-cube', name: '标定立方', fmt: 'BUILT-IN', tris: 12, meta: '40mm 正方体', build: () => builtinTemplate.clone(true) });
+
+// 真实电池模组（A11）：四件 STL 与 sim 场景共用同一套资产（统一模型坐标，加载即自动拼装）。
+// 启动即后台预取，就绪后插到列表顶部；未就绪时列表里还没有它，不会出现"点了没反应"。
+void (async () => {
+  const base = `${import.meta.env.BASE_URL}models/meshes/battery`;
+  const files = ['battery-lower', 'battery-upper-1', 'battery-upper-2', 'battery-upper-3'];
+  try {
+    const { STLLoader } = await import('three/examples/jsm/loaders/STLLoader.js');
+    const geos = await Promise.all(files.map(async (f) => {
+      const r = await fetch(`${base}/${f}.stl`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}: ${f}.stl`);
+      const geo = new STLLoader().parse(await r.arrayBuffer());
+      geo.scale(0.001, 0.001, 0.001); // 自家资产已知 mm 单位 → m（烘进几何体，相对位置随缩放保持）
+      return geo;
+    }));
+    const tris = geos.reduce((s, g) => s + Math.round(g.attributes.position.count / 3), 0);
+    // STL 自带面法线（CAD 平直边缘），不做 computeVertexNormals 以免圆滑化
+    const mats = [
+      new THREE.MeshStandardMaterial({ color: 0x9aa2ab, roughness: 0.42, metalness: 0.55 }),
+      new THREE.MeshStandardMaterial({ color: 0x4c5560, roughness: 0.5, metalness: 0.45 }),
+      new THREE.MeshStandardMaterial({ color: 0x4c5560, roughness: 0.5, metalness: 0.45 }),
+      new THREE.MeshStandardMaterial({ color: 0x4c5560, roughness: 0.5, metalness: 0.45 }),
+    ];
+    parts.unshift({
+      id: 'battery-module', name: '方形铝壳电池模组', fmt: 'BUILT-IN', tris, meta: '220×190×180 mm · 真实模型',
+      build: () => {
+        const g = new THREE.Group();
+        geos.forEach((geo, i) => g.add(new THREE.Mesh(geo, mats[i])));
+        return g;
+      },
+    });
+    renderList();
+  } catch (err) {
+    console.error('电池模组加载失败', err);
+  }
+})();
 
 /* ===== 列表渲染 ===== */
 

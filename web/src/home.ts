@@ -118,6 +118,43 @@ const grid = new THREE.GridHelper(1.7, 24, 0x1f4a78, 0x122a44);
 grid.rotation.x = Math.PI / 2;
 scene.add(floor, grid);
 
+// ===== 真实电池模组（A11）：与 sim 场景同一套 STL 资产、同一位姿 =====
+// 位姿对齐 MJCF battery_module：pos=(0.44,0,0.010)（44cm 正前方、底面贴地），
+// quat=(w x y z)=(0,0,√2/2,√2/2) → THREE .set(x,y,z,w)。加载完成前不放行取景。
+let batteryGroup: THREE.Group | null = null;
+let batterySettled = false;
+void (async () => {
+  const base = `${import.meta.env.BASE_URL}models/meshes/battery`;
+  const files = ['battery-lower', 'battery-upper-1', 'battery-upper-2', 'battery-upper-3'];
+  try {
+    const { STLLoader } = await import('three/examples/jsm/loaders/STLLoader.js');
+    const geos = await Promise.all(files.map(async (f) => {
+      const r = await fetch(`${base}/${f}.stl`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}: ${f}.stl`);
+      const geo = new STLLoader().parse(await r.arrayBuffer());
+      geo.scale(0.001, 0.001, 0.001); // 自家资产已知 mm 单位 → m（烘进几何体）
+      return geo;
+    }));
+    // STL 自带面法线（CAD 平直边缘），不做 computeVertexNormals 以免圆滑化
+    const mats = [
+      new THREE.MeshStandardMaterial({ color: 0x9aa2ab, roughness: 0.42, metalness: 0.55 }),
+      new THREE.MeshStandardMaterial({ color: 0x4c5560, roughness: 0.5, metalness: 0.45 }),
+      new THREE.MeshStandardMaterial({ color: 0x4c5560, roughness: 0.5, metalness: 0.45 }),
+      new THREE.MeshStandardMaterial({ color: 0x4c5560, roughness: 0.5, metalness: 0.45 }),
+    ];
+    const g = new THREE.Group();
+    geos.forEach((geo, i) => g.add(new THREE.Mesh(geo, mats[i])));
+    g.quaternion.set(0, 0.70711, 0.70711, 0); // MJCF (w x y z)=(0,0,√2/2,√2/2)
+    g.position.set(0.44, 0, 0.010);
+    batteryGroup = g;
+    scene.add(g);
+  } catch (err) {
+    console.error('电池模组加载失败（总览视口）', err);
+  } finally {
+    batterySettled = true; // 无论成败都放行取景，不让电池问题卡死构图
+  }
+})();
+
 type UrdfRobot = { joints: Record<string, { setJointValue(v: number): boolean }> } & THREE.Object3D;
 let robot: UrdfRobot | null = null;
 
@@ -239,6 +276,11 @@ function doFit(r: UrdfRobot): void {
     if (tmp.isEmpty()) return;
     box.union(tmp);
   }
+  // 电池模组（静态件）并入取景包络——窗口要同时容下臂摆动包络与电池
+  if (batteryGroup) {
+    const bb = new THREE.Box3().setFromObject(batteryGroup);
+    if (!bb.isEmpty()) box.union(bb);
+  }
   if (box.isEmpty()) return;
   const size = box.getSize(new THREE.Vector3());
   const radius = size.length() * 0.5;
@@ -307,8 +349,9 @@ renderer.setAnimationLoop(() => {
   if (robot) {
     if (!reduced) setPose(robot, (performance.now() - t0) / 1000);
     // fit 必须等全部网格就位：loadAsync 在骨架建好时即 resolve，网格异步继续到，
-    // 提前量包围盒会得到空盒（NDC 投影 NaN、相机飞走）——每帧检查，齐了执行一次
-    if (!fitted && countMeshes(robot) >= 30) {
+    // 提前量包围盒会得到空盒（NDC 投影 NaN、相机飞走）——每帧检查，齐了执行一次。
+    // batterySettled：电池取景包络也要参与 fit，等它就绪（或确认失败）再取景
+    if (!fitted && batterySettled && countMeshes(robot) >= 30) {
       fitted = true;
       doFit(robot);
     }

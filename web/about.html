@@ -38,9 +38,7 @@
 
       <!-- ===== 痛点：为什么要遥操作 ===== -->
       <section class="sec" id="pain">
-        <p class="sec-kicker" data-rise>WHY · 为什么是遥操作</p>
         <h2 class="sec-title" data-rise>拆解退役电池，人不能在场</h2>
-        <p class="sec-sub" data-rise>残余电荷、老化隔膜、不确定的工况——传统人工拆解与二维监控遥操作都走不到终点。</p>
         <div class="pains" data-stagger>
           <div class="pain glass"><div class="p-ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></div><h3>起火爆炸风险</h3><p>退役电池内部残余电荷与老化隔膜，拆解中稍有不慎即触发热失控。</p></div>
           <div class="pain glass"><div class="p-ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.2"/><path d="M12 9.8V4.5M10.2 10.8 5.8 8.3M13.8 10.8l4.4-2.5M10.2 13.2l-4.4 2.5M13.8 13.2l4.4 2.5"/><circle cx="4.5" cy="7" r="1.8"/><circle cx="19.5" cy="7" r="1.8"/><circle cx="12" cy="17.5" r="1.8"/></svg></div><h3>电解液腐蚀中毒</h3><p>泄漏电解液具强腐蚀性与毒性，直接接触威胁作业人员健康。</p></div>
@@ -51,9 +49,7 @@
 
       <!-- ===== 工作原理：四环节闭环 ===== -->
       <section class="sec" id="flow">
-        <p class="sec-kicker" data-rise>HOW · 工作原理</p>
         <h2 class="sec-title" data-rise>四环节，虚实闭环</h2>
-        <p class="sec-sub" data-rise>数据上行感知推演，指令下行安全执行——一条不断自我修正的回路。</p>
         <div class="flow-wrap">
           <div class="flow-line"><div class="flow-line-fill"></div></div>
           <div class="flow-steps">
@@ -65,11 +61,34 @@
         </div>
       </section>
 
+      <!-- ===== 系统构成（中性技术说明）===== -->
+      <section class="sec" id="stack">
+        <h2 class="sec-title" data-rise>系统构成</h2>
+        <div class="stack" data-stagger>
+          <div class="stack-col glass">
+            <h3>硬件</h3>
+            <ul>
+              <li><b>reBot B601-DM</b><span>六轴机械臂 · 齿条夹爪</span></li>
+              <li><b>PICO 4</b><span>VR 头显 · 双手柄遥操</span></li>
+              <li><b>双工业相机</b><span>ArUco 位姿解算</span></li>
+              <li><b>工控机</b><span>运行伴生服务</span></li>
+            </ul>
+          </div>
+          <div class="stack-col glass">
+            <h3>软件</h3>
+            <ul>
+              <li><b>MuJoCo</b><span>浏览器物理仿真</span></li>
+              <li><b>Unity</b><span>PICO 端 VR 场景</span></li>
+              <li><b>FastAPI · WebSocket</b><span>虚实数据桥</span></li>
+              <li><b>Web 控制台</b><span>仿真 · 遥操 · 监控</span></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       <!-- ===== 核心亮点 ===== -->
       <section class="sec" id="highlights">
-        <p class="sec-kicker" data-rise>HIGHLIGHTS · 核心亮点</p>
         <h2 class="sec-title" data-rise>把"不可能"做成"日常"</h2>
-        <p class="sec-sub" data-rise>每一项都经过真机验证，不是 PPT 技术。</p>
         <div class="his" data-stagger>
           <div class="hi glass"><span class="h-tag">视觉</span><h3>首次夹取永久锁存</h3><p>双目 ArUco 解算 + 抓取瞬间锁存位姿，根除标签遮挡导致的跳变。</p></div>
           <div class="hi glass"><span class="h-tag">安全</span><h3>≤5ms 双键急停</h3><p>开机硬件闭锁 → 长按摇杆解锁 → A+B 急停切断动力，三级防护状态机。</p></div>
@@ -82,28 +101,26 @@
 
       <!-- ===== 素材位 ===== -->
       <section class="sec" id="media">
-        <p class="sec-kicker" data-rise>SCENES · 现场一瞥</p>
         <h2 class="sec-title" data-rise>系统实拍</h2>
-        <p class="sec-sub" data-rise>真机作业与 VR 第一视角实录（素材整理中）。</p>
-        <div class="mats">
+        <div class="mats" data-stagger>
           <div class="mat-ph" data-rise>
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M22 9l-6 4 6 4V9z"/></svg>
-            <b>真机拆解作业 · 实拍</b><span>素材待补</span>
+            <b>真机拆解作业 · 实拍</b>
           </div>
           <div class="mat-ph" data-rise>
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
-            <b>VR 第一视角 · 录屏</b><span>素材待补</span>
+            <b>VR 第一视角 · 录屏</b>
           </div>
           <div class="mat-ph" data-rise>
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M7 12h4M8 9v6M16 10h.01M19 13h.01"/></svg>
-            <b>遥操作中控台 · 实拍</b><span>素材待补</span>
+            <b>遥操作中控台 · 实拍</b>
           </div>
         </div>
       </section>
 
       <!-- ===== CTA ===== -->
       <section class="cta-sec" data-rise>
-        <h2>准备好看电池是怎么被拆开的了吗？</h2>
+        <h2>在浏览器里，跑通整条拆解流程</h2>
         <a class="btn-solid" href="sim.html">打开仿真工作台 →</a>
       </section>
     </main>

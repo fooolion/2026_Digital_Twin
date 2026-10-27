@@ -1,7 +1,7 @@
 /**
- * 关于页（宣传内容：痛点/工作原理/亮点/素材位/团队已删）。
+ * 关于页（R7，2026-10-27）：Hero / 痛点 / 四环节 / 系统构成 / 亮点 / 素材位 / CTA。
+ * 设计原则：不用二级标签与冗余副标，标题 + 排版自说明。
  * 动效：GSAP + Lenis 滚动叙事；reduced-motion 时内容直接可见。
- * Rev: R2 · 2026-10-25
  */
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';

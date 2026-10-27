@@ -1,4 +1,5 @@
-/* ===== 关于页（R2）：Hero / 痛点 / 工作原理 / 亮点 / 素材位 / CTA（由 about.ts 引入） ===== */
+/* ===== 关于页（R7）：Hero / 痛点 / 四环节 / 系统构成 / 亮点 / 素材位 / CTA（由 about.ts 引入）
+   设计原则：不用二级标签与冗余副标，标题 + 排版自说明 ===== */
 /* --- Hero --- */
 .hero { position: relative; min-height: 100svh; display: flex; align-items: center; justify-content: center; }
 .badge {
@@ -22,9 +23,7 @@
 
 /* ===== 通用 section 骨架 ===== */
 .sec { max-width: 1060px; margin: 0 auto; padding: 100px 22px 30px; }
-.sec-title { font-size: clamp(22px, 3vw, 30px); font-weight: 700; text-align: center; margin-bottom: 10px; }
-.sec-kicker { text-align: center; font-size: 12.5px; letter-spacing: .18em; color: var(--color-accsoft); margin-bottom: 12px; }
-.sec-sub { text-align: center; color: var(--color-fog); font-size: 14px; margin-bottom: 48px; line-height: 1.8; }
+.sec-title { font-size: clamp(22px, 3vw, 30px); font-weight: 700; text-align: center; margin-bottom: 44px; }
 
 /* --- 痛点 --- */
 .pain-lead {
@@ -60,6 +59,16 @@
   .flow-steps { grid-template-columns: 1fr 1fr; }
 }
 
+/* --- 系统构成：双栏清单，名字 + 一句职责，让对齐排版自说明 --- */
+.stack { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 880px; margin: 0 auto; }
+.stack-col { padding: 20px 24px 12px; border-radius: 16px; }
+.stack-col h3 { font-size: 12px; font-weight: 600; letter-spacing: .16em; color: var(--color-accsoft); margin-bottom: 4px; }
+.stack-col li { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 11px 0; border-top: 1px solid rgba(148, 184, 220, .09); }
+.stack-col li:first-child { border-top: 0; }
+.stack-col b { font-size: 13.5px; font-weight: 600; color: var(--color-mist); white-space: nowrap; }
+.stack-col span { font-size: 12px; color: var(--color-fog); text-align: right; }
+@media (max-width: 700px) { .stack { grid-template-columns: 1fr; } }
+
 /* --- 核心亮点 --- */
 .his { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
 .hi { padding: 22px 20px; border-radius: 16px; }
@@ -83,7 +92,6 @@
 }
 .mat-ph svg { opacity: .35; }
 .mat-ph b { font-size: 13px; color: #9aa7ba; font-weight: 500; }
-.mat-ph span { font-size: 11px; color: #56637a; }
 
 /* --- CTA / footer --- */
 .cta-sec { text-align: center; padding: 100px 22px 120px; }

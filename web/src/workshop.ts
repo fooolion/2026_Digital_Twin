@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { mountNav, toast } from './nav';
+import { loadBattery } from './battery';
 import './theme.css';
 import './parts.css';
 
@@ -107,43 +108,16 @@ const builtinTemplate = (() => {
 })();
 parts.push({ id: 'builtin-cube', name: '标定立方', fmt: 'BUILT-IN', tris: 12, meta: '40mm 正方体', build: () => builtinTemplate.clone(true) });
 
-// 真实电池模组（A11）：四件 STL 与 sim 场景共用同一套资产（统一模型坐标，加载即自动拼装）。
-// 启动即后台预取，就绪后插到列表顶部；未就绪时列表里还没有它，不会出现"点了没反应"。
-void (async () => {
-  const base = `${import.meta.env.BASE_URL}models/meshes/battery`;
-  const files = ['battery-lower', 'battery-upper-1', 'battery-upper-2', 'battery-upper-3'];
-  try {
-    const { STLLoader } = await import('three/examples/jsm/loaders/STLLoader.js');
-    const geos = await Promise.all(files.map(async (f) => {
-      const r = await fetch(`${base}/${f}.stl`);
-      if (!r.ok) throw new Error(`HTTP ${r.status}: ${f}.stl`);
-      const geo = new STLLoader().parse(await r.arrayBuffer());
-      geo.scale(0.001, 0.001, 0.001); // 自家资产已知 mm 单位 → m（烘进几何体，相对位置随缩放保持）
-      return geo;
-    }));
-    const tris = geos.reduce((s, g) => s + Math.round(g.attributes.position.count / 3), 0);
-    // STL 自带面法线（CAD 平直边缘），不做 computeVertexNormals 以免圆滑化
-    const mats = [
-      new THREE.MeshStandardMaterial({ color: 0x9aa2ab, roughness: 0.42, metalness: 0.55 }),
-      new THREE.MeshStandardMaterial({ color: 0x4c5560, roughness: 0.5, metalness: 0.45 }),
-      new THREE.MeshStandardMaterial({ color: 0x4c5560, roughness: 0.5, metalness: 0.45 }),
-      new THREE.MeshStandardMaterial({ color: 0x4c5560, roughness: 0.5, metalness: 0.45 }),
-    ];
-    parts.unshift({
-      id: 'battery-module', name: '方形铝壳电池模组', fmt: 'BUILT-IN', tris, meta: '220×190×180 mm · 真实模型',
-      build: () => {
-        const g = new THREE.Group();
-        geos.forEach((geo, i) => g.add(new THREE.Mesh(geo, mats[i])));
-        // 与 sim 场景同一姿态：循环换轴 x→y→z→x，模型 y（堆叠轴）立为竖直，否则预览是侧放
-        g.quaternion.set(0.5, 0.5, 0.5, 0.5);
-        return g;
-      },
-    });
-    renderList();
-  } catch (err) {
-    console.error('电池模组加载失败', err);
-  }
-})();
+// 真实电池模组（A11）：与 sim 场景共用同一套 STL 资产（统一模型坐标，加载即自动拼装）。
+// 就绪后插到列表顶部；未就绪时列表里还没有它，不会出现"点了没反应"。
+void loadBattery().then(({ group, tris }) => {
+  group.quaternion.set(0.5, 0.5, 0.5, 0.5); // 循环换轴：模型 y（堆叠轴）立为竖直，否则预览侧放
+  parts.unshift({
+    id: 'battery-module', name: '方形铝壳电池模组', fmt: 'BUILT-IN', tris, meta: '220×190×180 mm · 真实模型',
+    build: () => group.clone(), // 模板复用：clone 共享几何体/材质不重复上 GPU；preview 会改 position，模板本体不动
+  });
+  renderList();
+}).catch((err) => console.error('电池模组加载失败', err));
 
 /* ===== 列表渲染 ===== */
 

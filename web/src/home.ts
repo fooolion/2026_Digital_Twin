@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { mountNav, renderStatList, type StatItem } from './nav';
 import { watchCompanion } from './companion';
+import { loadBattery } from './battery';
 import { PAGE_HREF } from './nav';
 import './theme.css';
 import './cockpit.css';
@@ -123,37 +124,15 @@ scene.add(floor, grid);
 // quat=(w x y z)=(0,0,√2/2,√2/2) → THREE .set(x,y,z,w)。加载完成前不放行取景。
 let batteryGroup: THREE.Group | null = null;
 let batterySettled = false;
-void (async () => {
-  const base = `${import.meta.env.BASE_URL}models/meshes/battery`;
-  const files = ['battery-lower', 'battery-upper-1', 'battery-upper-2', 'battery-upper-3'];
-  try {
-    const { STLLoader } = await import('three/examples/jsm/loaders/STLLoader.js');
-    const geos = await Promise.all(files.map(async (f) => {
-      const r = await fetch(`${base}/${f}.stl`);
-      if (!r.ok) throw new Error(`HTTP ${r.status}: ${f}.stl`);
-      const geo = new STLLoader().parse(await r.arrayBuffer());
-      geo.scale(0.001, 0.001, 0.001); // 自家资产已知 mm 单位 → m（烘进几何体）
-      return geo;
-    }));
-    // STL 自带面法线（CAD 平直边缘），不做 computeVertexNormals 以免圆滑化
-    const mats = [
-      new THREE.MeshStandardMaterial({ color: 0x9aa2ab, roughness: 0.42, metalness: 0.55 }),
-      new THREE.MeshStandardMaterial({ color: 0x4c5560, roughness: 0.5, metalness: 0.45 }),
-      new THREE.MeshStandardMaterial({ color: 0x4c5560, roughness: 0.5, metalness: 0.45 }),
-      new THREE.MeshStandardMaterial({ color: 0x4c5560, roughness: 0.5, metalness: 0.45 }),
-    ];
-    const g = new THREE.Group();
-    geos.forEach((geo, i) => g.add(new THREE.Mesh(geo, mats[i])));
-    g.quaternion.set(0, 0.70711, 0.70711, 0); // MJCF (w x y z)=(0,0,√2/2,√2/2)
-    g.position.set(0.44, 0, 0.010);
-    batteryGroup = g;
-    scene.add(g);
-  } catch (err) {
-    console.error('电池模组加载失败（总览视口）', err);
-  } finally {
-    batterySettled = true; // 无论成败都放行取景，不让电池问题卡死构图
-  }
-})();
+loadBattery()
+  .then(({ group }) => {
+    group.quaternion.set(0, 0.70711, 0.70711, 0); // MJCF (w x y z)=(0,0,√2/2,√2/2)
+    group.position.set(0.44, 0, 0.010);
+    batteryGroup = group;
+    scene.add(group);
+  })
+  .catch((err) => console.error('电池模组加载失败（总览视口）', err))
+  .finally(() => { batterySettled = true; }); // 无论成败都放行取景，不让电池问题卡死构图
 
 type UrdfRobot = { joints: Record<string, { setJointValue(v: number): boolean }> } & THREE.Object3D;
 let robot: UrdfRobot | null = null;

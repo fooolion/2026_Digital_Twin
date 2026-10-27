@@ -36,10 +36,12 @@ const KPIS = [
   { v: '≤5', u: 'ms 急停响应' }, { v: 'mm 级', u: 'TCP 拖拽跟踪' },
 ];
 
-// 四步工作流（对应导航①-④）：state = done | now | todo
+// 四步工作流（对应导航①-④）：state = done | now | todo。
+// 总览不属于任何步骤——默认全 todo（"下一步去哪"由当前任务卡与 CTA 按钮承担，bar 不冒充进度）；
+// done/now 样式钩子保留，将来接真实进度（如桥接状态驱动）直接填值。
 const FLOW = [
   { no: 1, key: 'workshop', title: '零件库', sub: 'STEP 01 · 导入电池零件', state: 'todo' },
-  { no: 2, key: 'sim', title: '仿真规划', sub: 'STEP 02 · 路径与动作', state: 'now' },
+  { no: 2, key: 'sim', title: '仿真规划', sub: 'STEP 02 · 路径与动作', state: 'todo' },
   { no: 3, key: 'teleop', title: '遥操作', sub: 'STEP 03 · 拆卸步骤设定', state: 'todo' },
   { no: 4, key: 'live', title: '运行监控', sub: 'STEP 04 · VR 与相机画面', state: 'todo' },
 ];

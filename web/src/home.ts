@@ -23,10 +23,10 @@ const SYSTEM: (StatItem & { href: string; probe?: 'companion' })[] = [
   { name: '伴生服务（视频/桥接）', lamp: 'warn', state: '探测中…', href: 'live.html', probe: 'companion' },
 ];
 
-// 场景配置（占位值——实际场景位置尺寸与电池建模确定后在此更新）
+// 场景配置（与 sim 场景实况同步：电池模组 2026-10-28 上场景，44cm 正前方）
 const SCENE = [
-  { name: '电池模型', value: '占位样件（40mm 立方）' },
-  { name: '工位尺寸', value: '待定' },
+  { name: '电池模型', value: '方形铝壳模组（220×190×180）' },
+  { name: '工位尺寸', value: '臂心-电池心 440mm' },
   { name: '夹爪类型', value: '齿轮-齿条双指' },
   { name: '相机配置', value: '双工业相机（待标定）' },
 ];
@@ -151,14 +151,21 @@ const txtEl = loadMask.querySelector('#cp-load-txt') as HTMLElement;
 void (async () => {
   const { default: URDFLoader } = await import('urdf-loader');
   try {
-    // 传输压缩（审查杠杆 1）：构建时已预压 .gz（21MB visual → ~6.5MB 传输）。
-    // URDF 文本与 STL 全部手动 fetch .gz → 解压 → blob URL；loader 经 URL 重写消费 blob。
+    // 传输压缩（审查杠杆 1）：构建时预压 .gz（21MB visual → ~6.5MB 传输）。
+    // 优先 .gz + 原生解压；dev 服务器 / 旧部署没有 .gz → 回退原文件（与 sim.ts 同策略），
+    // 否则 dev 模式总览页必然"模型加载失败"。
     const MODEL_BASE = `${import.meta.env.BASE_URL}models`;
     const gzBytes = async (relUrl: string): Promise<ArrayBuffer> => {
-      const r = await fetch(`${MODEL_BASE}/${relUrl}.gz`);
-      if (!r.ok) throw new Error(`HTTP ${r.status}: ${relUrl}.gz`);
-      const stream = r.body!.pipeThrough(new DecompressionStream('gzip'));
-      return new Response(stream).arrayBuffer();
+      try {
+        const gz = await fetch(`${MODEL_BASE}/${relUrl}.gz`);
+        if (gz.ok) {
+          const stream = gz.body!.pipeThrough(new DecompressionStream('gzip'));
+          return await new Response(stream).arrayBuffer();
+        }
+      } catch { /* 解压/网络失败回退原文件 */ }
+      const r = await fetch(`${MODEL_BASE}/${relUrl}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}: ${relUrl}`);
+      return r.arrayBuffer();
     };
     const urdfRel = 'ReBot_Arm_DM_preview.urdf';
     const urdfText = new TextDecoder().decode(await gzBytes(urdfRel));

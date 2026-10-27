@@ -226,14 +226,16 @@
   
   <!-- ===== 网页演示场景（P4→A11）：工作台面 + 真实电池模组 + 演示样件 =====
        电池模组：底座中心正前方 0.44m（初始姿态夹爪朝向 +X，底座中心到电池中心 44cm）。
-       模型坐标 y 轴 = 堆叠方向 → 世界 z（quat 0.5 0.5 0.5 0.5 = 循环换轴 x→y→z→x），
-       模型 y 范围 [-0.010, 0.180] → body z=0.010 使底面贴桌面，几何中心落在 (0.44, 0, 0.095)。
+       姿态 = 循环换轴（x→y→z→x，模型 y 堆叠轴→世界 z）再绕世界 z 逆时针 +90°（用户定稿）：
+       quat = Rz(90°)·(0.5,0.5,0.5,0.5) = (0, 0, 1/√5, 2/√5)。模型 x（220 长边）转到沿世界 x
+       朝向臂侧，模型 z（180 深）转为横置；m_y→w_z 不变 → body z=0.010 仍使底面贴桌面，
+       模型几何中心在 m_y 轴上 → 俯仰旋转不改变中心水平位置，44cm 自动保持。
        纯视觉（contype=0）：凸包碰撞比真件胖，会卡住演示路径——阶段二做"拆一件"时
        再给可拆件建精准碰撞。
        演示样件（demo_cube，40mm 可抓样件）：摆在电池近侧前方（0.30m），默认机位不被模组遮挡；
        demo.ts 按 body 名读取出生点，demo 逻辑零改动。 -->
     <geom name="web_table" type="plane" size="0.6 0.6 0.05" rgba="0.16 0.20 0.27 1" contype="1024" conaffinity="1024"/>
-    <body name="battery_module" pos="0.44 0 0.010" quat="0.5 0.5 0.5 0.5">
+    <body name="battery_module" pos="0.44 0 0.010" quat="0 0 0.44721 0.89443">
       <geom name="battery_lower_geom"  type="mesh" mesh="battery_lower"  rgba="0.62 0.65 0.68 1" contype="0" conaffinity="0"/>
       <geom name="battery_upper1_geom" type="mesh" mesh="battery_upper1" rgba="0.30 0.34 0.38 1" contype="0" conaffinity="0"/>
       <geom name="battery_upper2_geom" type="mesh" mesh="battery_upper2" rgba="0.30 0.34 0.38 1" contype="0" conaffinity="0"/>

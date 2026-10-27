@@ -134,6 +134,8 @@ void (async () => {
       build: () => {
         const g = new THREE.Group();
         geos.forEach((geo, i) => g.add(new THREE.Mesh(geo, mats[i])));
+        // 与 sim 场景同一姿态：循环换轴 x→y→z→x，模型 y（堆叠轴）立为竖直，否则预览是侧放
+        g.quaternion.set(0.5, 0.5, 0.5, 0.5);
         return g;
       },
     });

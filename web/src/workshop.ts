@@ -19,6 +19,7 @@ interface Part {
   name: string;
   fmt: string;
   tris: number;
+  meta?: string;                 // 列表显示覆盖：内置件用人话描述，导入件默认显示三角形数
   build: () => THREE.Object3D;   // 惰性构建（导入件缓存解析结果）
 }
 
@@ -104,7 +105,7 @@ const builtinTemplate = (() => {
   mesh.add(edges);
   return mesh;
 })();
-parts.push({ id: 'builtin-cube', name: '占位电池样件', fmt: 'BUILT-IN', tris: 12, build: () => builtinTemplate.clone(true) });
+parts.push({ id: 'builtin-cube', name: '占位电池样件', fmt: 'BUILT-IN', tris: 12, meta: '正方体', build: () => builtinTemplate.clone(true) });
 
 /* ===== 列表渲染 ===== */
 
@@ -112,10 +113,12 @@ const listEl = document.getElementById('part-list')!;
 const metaEl = document.getElementById('part-meta')!;
 
 function renderList(): void {
+  // 内置件显示人话描述（meta 覆盖），导入件显示三角形数（3D 重量参考）
+  const sub = (p: Part) => p.meta ?? `${p.tris.toLocaleString()} 三角形`;
   listEl.innerHTML = parts.map((p) => `
     <li class="part-item${p.id === selectedId ? ' active' : ''}" data-id="${p.id}" role="button" tabindex="0">
       <span class="p-fmt"></span>
-      <div class="p-info"><b></b><small>${p.tris.toLocaleString()} 三角形</small></div>
+      <div class="p-info"><b></b><small>${sub(p)}</small></div>
     </li>`).join('');
   // 文件名来自本地导入，不可信进 innerHTML——用 DOM API 填充
   listEl.querySelectorAll('.part-item').forEach((liEl) => {
@@ -125,7 +128,7 @@ function renderList(): void {
     li.querySelector('.p-info b')!.textContent = p.name;
   });
   const sel = parts.find((p) => p.id === selectedId);
-  metaEl.textContent = sel ? `${sel.name} · ${sel.fmt} · ${sel.tris.toLocaleString()} 三角形` : '';
+  metaEl.textContent = sel ? `${sel.name} · ${sel.fmt} · ${sub(sel)}` : '';
 }
 
 function select(id: string): void {

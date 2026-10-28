@@ -245,14 +245,11 @@
       <geom name="battery_upper1_geom" type="mesh" mesh="battery_upper1" rgba="0.30 0.34 0.38 1" contype="0" conaffinity="0"/>
       <geom name="battery_upper2_geom" type="mesh" mesh="battery_upper2" rgba="0.30 0.34 0.38 1" contype="0" conaffinity="0"/>
       <geom name="battery_upper3_geom" type="mesh" mesh="battery_upper3" rgba="0.30 0.34 0.38 1" contype="0" conaffinity="0"/>
-      <!-- 新母线（2026-10-28）：建模原点与电池不对应，按几何测量配合——
-           母线双孔组（D10.2, 组间中心距98）套 upper-1/2 的 D10 极柱 (85.14,·,±49)（距恰 98.00）。
-           姿态 = 绕电池 z 180°（倒扣，孔轴对极柱轴；正放腿会插进顶板穿模），
-           t=(85.14,185,44)：孔板 y∈[170,180] 套柱顶 175。
-           注意：busbar.stl 文件已做 SW 原点恢复（模型=文件+SW_MIN，与四件电池 STL 同处理）——
-           此前文件带正空间平移未修，配合位整体偏 (41,79,107)mm，目视调整与数学验证互相打架；
-           文件修正后本位姿即为 Python 终审验证的正确配合（同轴偏差 0、零穿模）。 -->
-      <body name="battery_busbar" pos="0.08514 0.185 0.044" quat="0 0 1 0">
+      <!-- 新母线（2026-10-28）：配合位姿以 9fccd32 目视定稿的渲染效果为准。
+           busbar.stl 已做 SW 原点恢复（模型=文件+SW_MIN, S=(41,79,107)），
+           定稿参数经等效换算：t_new = t_user + R_u·S = (125.14,87,63)+(-41,-79,107) = (84.14, 8, 170)，
+           quat 不变（绕 z 180°）——代数恒等于定稿渲染（R·v+t_new ≡ R·(v+S)+t_user）。 -->
+      <body name="battery_busbar" pos="0.08414 0.008 0.170" quat="0 0 1 0">
         <geom name="battery_busbar_geom" type="mesh" mesh="battery_busbar" rgba="0.72 0.45 0.20 1" contype="0" conaffinity="0"/>
       </body>
     </body>

@@ -8,11 +8,11 @@
 import * as THREE from 'three';
 
 const BASE = `${import.meta.env.BASE_URL}models/meshes/battery`;
-// busbar（新母线）：stl 文件已做 SW 原点恢复（与四件电池 STL 同坐标系），
-// 配合位姿按几何测量 + Python 穿模终审：绕 z 180°、t=(85.14, 185, 44) mm（推导见 MJCF 注释）
+// busbar（新母线）：stl 已做 SW 原点恢复；位姿以 9fccd32 目视定稿渲染为准，
+// 等效换算 t=(84.14, 8, 170) mm（= 定稿 t(125.14,87,63) + R·S，quat 不变绕 z 180°）
 const FILES = ['battery-lower', 'battery-upper-1', 'battery-upper-2', 'battery-upper-3'] as const;
 const BUSBAR_FILE = 'busbar';
-const BUSBAR_POS = new THREE.Vector3(0.08514, 0.185, 0.044);
+const BUSBAR_POS = new THREE.Vector3(0.08414, 0.008, 0.17);
 
 /** 与 sim.ts 同策略：优先 .gz + DecompressionStream，失败回退原文件 */
 async function fetchBytes(url: string): Promise<ArrayBuffer> {

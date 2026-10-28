@@ -248,11 +248,12 @@ async function main(): Promise<void> {
     onReset(): void {
       if (dragging) endDrag();
       // 复位抢占一切任务：停演示/回放/录制并同步面板，避免组合态
-      if (demo.running) { demo.stop(); panel.setDemoRunning(false); }
+      if (demo.running) { demo.stop(); panel.setDemoRunning(false); panel.setBusbarRunning(false); }
       if (demo.replayRunning) demo.stopReplay();
       if (demo.recRunning) { demo.stopRec(); panel.setRecRunning(false); }
       panel.setPathInfo('未记录', false);
       demo.resetCube(); // 样件放回出生点（复位=整场景回到初始）
+      demo.resetBusbar(); // 母线放回极柱（同语义）
       manualMode = true;
       manualTargets.fill(0); // 复位语义：6 轴归零 + 夹爪闭合
       gripTargetRad = 0;
@@ -266,7 +267,7 @@ async function main(): Promise<void> {
       ballHidden = hidden;
     },
     onDemo(): void {
-      if (demo.running) { demo.stop(); panel.setDemoRunning(false); return; }
+      if (demo.running) { demo.stop(); panel.setDemoRunning(false); panel.setBusbarRunning(false); return; }
       try {
         if (dragging) endDrag();
         demo.stopRec(); demo.stopReplay(); panel.setRecRunning(false);
@@ -274,6 +275,19 @@ async function main(): Promise<void> {
         demo.start();
         panel.setDemoRunning(true);
         toast('一键夹取演示开始');
+      } catch (e) {
+        toast(e instanceof Error ? e.message : String(e));
+      }
+    },
+    onBusbar(): void {
+      if (demo.running) { demo.stop(); panel.setDemoRunning(false); panel.setBusbarRunning(false); return; }
+      try {
+        if (dragging) endDrag();
+        demo.stopRec(); demo.stopReplay(); panel.setRecRunning(false);
+        manualMode = false; panel.setMode(false);
+        demo.startBusbar();
+        panel.setBusbarRunning(true);
+        toast('母线拆取演示开始');
       } catch (e) {
         toast(e instanceof Error ? e.message : String(e));
       }
@@ -355,6 +369,16 @@ async function main(): Promise<void> {
   padDot.position.z = 0.0016;
   dropRing.add(padDisc, padRing, padDot);
   scene.add(dropRing);
+  // 母线放置区（A11 阶段二）：黄色降落坪，圆心 (0.30,0.30) 半径 0.10（用户指定）
+  const busRing = new THREE.Group();
+  const busMat = (opacity: number) => new THREE.MeshBasicMaterial({
+    color: 0xffd166, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false,
+  });
+  const busDisc = new THREE.Mesh(new THREE.CircleGeometry(0.10, 48), busMat(0.10));
+  const busRingEdge = new THREE.Mesh(new THREE.RingGeometry(0.093, 0.100, 48), busMat(0.9));
+  busRingEdge.position.z = 0.0008;
+  busRing.add(busDisc, busRingEdge);
+  scene.add(busRing);
   // 录制路径可视化（橙色细线，随采样实时生长；预分配属性避免每帧重建）
   const PATH_MAX = 4000;
   let recDrawn = 0; // 已写入 pathPos 的点数（增量绘制的游标；路径清空时复位）
@@ -489,6 +513,7 @@ async function main(): Promise<void> {
     gripOpenRad,
   });
   dropRing.position.set(demo.dropPoint.x, demo.dropPoint.y, 0.002); // 投放环与演示共用同一点
+  busRing.position.set(demo.busbarDropPoint.x, demo.busbarDropPoint.y, 0.002); // 母线放置黄圈
 
   function tick(now: number): void {
     requestAnimationFrame(tick);
@@ -497,6 +522,7 @@ async function main(): Promise<void> {
     last = now;
 
     // 任务推进：演示/回放走关节插值通路（不经 IK——回放也离线解成关节轨迹）；录制走伺服通路
+    demo.busbarIdleTick(); // 母线钉住（freejoint 无碰撞，不钉会坠落穿桌）——任何状态每帧执行
     if (demo.running || demo.replayRunning) {
       demo.tick(frameDt, now);
       for (let i = 0; i < 6; i++) targetQ[i] = demo.jointTarget[i];
@@ -588,7 +614,8 @@ async function main(): Promise<void> {
       for (let i = 0; i < 6; i++) curDeg.push(qpos[i] * DEG);
       const travelMm = qpos[6] * 0.008 * 1000; // 齿轮角 × 小齿轮半径 0.008m → 单指行程 mm
       panel.syncReadouts(curDeg, travelMm);
-      panel.setDemoRunning(demo.running); // 演示自然结束（ret 完成）时复位按钮态
+      panel.setDemoRunning(demo.running && demo.planKind === 'cube'); // 演示自然结束（ret 完成）时复位按钮态
+      panel.setBusbarRunning(demo.running && demo.planKind === 'busbar');
       panel.setRecRunning(demo.recRunning);
       // 录制路径线可视化（增量写入：只追加新采样点，不清不重写——录制千点时
       // 全量重写是每帧数千次浮点拷贝的纯浪费）

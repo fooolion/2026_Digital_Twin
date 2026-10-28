@@ -245,13 +245,14 @@
       <geom name="battery_upper1_geom" type="mesh" mesh="battery_upper1" rgba="0.30 0.34 0.38 1" contype="0" conaffinity="0"/>
       <geom name="battery_upper2_geom" type="mesh" mesh="battery_upper2" rgba="0.30 0.34 0.38 1" contype="0" conaffinity="0"/>
       <geom name="battery_upper3_geom" type="mesh" mesh="battery_upper3" rgba="0.30 0.34 0.38 1" contype="0" conaffinity="0"/>
-      <!-- 新母线（2026-10-28）：建模原点与电池不对应，按几何测量配合——
-           母线双孔组（D10.2, 组间中心距98）套 upper-1/2 的 D10 极柱 (85.14,·,±49)
-           （距恰 98.00）。孔轴 -y_m→-y_b 对极柱；
-           t=(85.14+40=125.14,185-98=87,44+5+14=63)：孔板 y∈[170,180] 套柱顶 175。 -->
-      <body name="battery_busbar" pos="0.12514 0.087 0.063" quat="0 0 1 0">
-        <geom name="battery_busbar_geom" type="mesh" mesh="battery_busbar" rgba="0.72 0.45 0.20 1" contype="0" conaffinity="0"/>
-      </body>
+    </body>
+    <!-- 新母线（A11 阶段二拆件演示）：独立 freejoint body（可被夹取/搬运/放置）。
+         出生位姿 = 定稿套配位姿（原 battery_module 子 body 实测换算到世界系）：
+         pos=(0.31486,0.063,0.097) quat(wxyz)=(0.70711,0.70711,0,0)（绕 x 90°）。
+         纯视觉 + demo 运动学钉住（非抓取时每帧写回钉点位姿），无碰撞。 -->
+    <body name="battery_busbar" pos="0.31486 0.063 0.097" quat="0.70711 0.70711 0 0">
+      <freejoint/>
+      <geom name="battery_busbar_geom" type="mesh" mesh="battery_busbar" rgba="0.72 0.45 0.20 1" contype="0" conaffinity="0"/>
     </body>
     <body name="demo_cube" pos="0.30 0.30 0.021">
       <freejoint/>

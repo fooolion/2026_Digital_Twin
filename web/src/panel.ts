@@ -21,6 +21,8 @@ export interface JointPanel {
   syncReadouts(curDeg: number[], travelMm: number): void;
   /** 一键演示运行态（按钮文字/占用态切换） */
   setDemoRunning(run: boolean): void;
+  /** 拆母线演示运行态 */
+  setBusbarRunning(run: boolean): void;
   /** 路径录制运行态 */
   setRecRunning(run: boolean): void;
   /** 路径信息行（点数/回放态；active=琥珀强调） */
@@ -42,6 +44,7 @@ export function createJointPanel(
     /** 隐藏/显示 TCP 球组（小球+球网+连线）——便于观察夹爪运动 */
     onBallToggle(hidden: boolean): void;
     onDemo(): void;
+    onBusbar(): void;
     onRec(): void;
     onReplay(): void;
     onClearPath(): void;
@@ -92,6 +95,7 @@ export function createJointPanel(
         <span class="jp-pathinfo" id="jp-pathinfo">未记录</span>
       </div>
       <button type="button" class="jp-btn jp-wide" id="jp-demo">▶ 一键夹取演示</button>
+      <button type="button" class="jp-btn jp-wide" id="jp-busbar">⇩ 拆取母线演示</button>
       <div class="jp-grip-btns">
         <button type="button" class="jp-btn" id="jp-rec">● 记录路径</button>
         <button type="button" class="jp-btn" id="jp-replay">↻ 回放</button>
@@ -179,10 +183,12 @@ export function createJointPanel(
 
   // ===== 任务/路径区（P4）=====
   const demoBtn = $('jp-demo');
+  const busbarBtn = $('jp-busbar');
   const recBtn = $('jp-rec');
   const replayBtn = $('jp-replay');
   const pathInfo = $('jp-pathinfo');
   demoBtn.addEventListener('click', () => cb.onDemo());
+  busbarBtn.addEventListener('click', () => cb.onBusbar());
   recBtn.addEventListener('click', () => cb.onRec());
   replayBtn.addEventListener('click', () => cb.onReplay());
   $('jp-clear').addEventListener('click', () => cb.onClearPath());
@@ -230,6 +236,14 @@ export function createJointPanel(
     setDemoRunning(run: boolean): void {
       demoBtn.textContent = run ? '■ 停止演示' : '▶ 一键夹取演示';
       demoBtn.classList.toggle('jp-on', run);
+      if (run) { busbarBtn.textContent = '⇩ 拆取母线演示'; busbarBtn.classList.remove('jp-on'); }
+      recBtn.textContent = '● 记录路径';
+      recBtn.classList.remove('jp-on');
+    },
+    setBusbarRunning(run: boolean): void {
+      busbarBtn.textContent = run ? '■ 停止拆取' : '⇩ 拆取母线演示';
+      busbarBtn.classList.toggle('jp-on', run);
+      if (run) { demoBtn.textContent = '▶ 一键夹取演示'; demoBtn.classList.remove('jp-on'); }
       recBtn.textContent = '● 记录路径';
       recBtn.classList.remove('jp-on');
     },

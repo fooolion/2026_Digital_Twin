@@ -34,6 +34,9 @@ watchCompanion((h) => {
   void setupCams();
   void setupBridge();
 });
+// 页面加载即跑一次：无伴生服务（Pages 部署/本地演示）也要有画面——本地预录兜底；
+// 伴生服务上线后 watchCompanion 会再调（升级实时流/服务视频，picoSetUpLive 防重复拉流）
+void setupPico();
 
 /* ===== P5-C：PICO 大屏三层降级（WHEP 实时流 > 预录视频 > 占位层） ===== */
 const picoVideo = document.getElementById('pico-video') as HTMLVideoElement;
@@ -48,11 +51,22 @@ function picoState(lamp: 'ok' | 'warn' | 'off', state: string): void {
 }
 
 function showPicoVideo(): void {
-  picoPh.style.display = 'none';
+  picoPh.hidden = true;
   picoVideo.style.display = 'block';
 }
 
+function showPicoPh(): void {
+  picoVideo.style.display = 'none';
+  picoPh.hidden = false;
+}
+
+/** 本地预录视频（PICO 观察录像，去音轨 960×540/2.6MB）——无伴生服务时的默认画面 */
+const PICO_LOCAL_VIDEO = `${import.meta.env.BASE_URL}videos/pico-observe.mp4`;
+
+let picoSetUpLive = false; // 实时流已建立标记：伴生服务回调重复触发 setupPico 时不再重拉/降级
+
 async function setupPico(): Promise<void> {
+  if (picoSetUpLive) return; // ① 已在实时流，降级逻辑不应回头
   let cfg: { whep: string; video: boolean; video_url: string | null } | null = null;
   try {
     cfg = await (await fetch(`${COMPANION_BASE}/api/stream`)).json();
@@ -62,6 +76,7 @@ async function setupPico(): Promise<void> {
     // ① 实时流（MediaMTX WHEP）
     try {
       const session = await pullWhep(cfg.whep, picoVideo);
+      picoSetUpLive = true;
       showPicoVideo();
       picoState('ok', '实时流 · WebRTC');
       session.pc.addEventListener('connectionstatechange', () => {
@@ -74,19 +89,33 @@ async function setupPico(): Promise<void> {
       // WHEP 失败（MediaMTX 未推流）→ 降级预录
     }
   }
-  if (cfg?.video && cfg.video_url) {
-    // ② 预录视频（老师认可的过渡形态；相对当前源——伴生服务同源 / Pages 部署时伴生服务不在则探不到）
-    picoVideo.src = cfg.video_url;
+  // ② 预录视频：伴生服务配置的 video_url 优先，否则用内置 PICO 观察录像
+  //   （Pages 部署无伴生服务时的默认画面；P5 接入实时流后 setupPico 走 ① 自动切换）
+  const localUrl = cfg?.video ? cfg.video_url : PICO_LOCAL_VIDEO;
+  if (localUrl) {
+    const onErr = () => { // 视频失败 → 占位层兜底
+      picoVideo.removeEventListener('error', onErr);
+      showPicoPh();
+      picoState('warn', '预录视频加载失败');
+    };
+    picoVideo.addEventListener('error', onErr);
+    picoVideo.src = localUrl;
     picoVideo.loop = true;
     picoVideo.muted = true; // 自动播放策略要求静音
-    void picoVideo.play().catch(() => { /* 首次交互后恢复 */ });
-    showPicoVideo();
-    picoState('ok', '预录视频 · 循环播放');
+    void picoVideo.play().then(() => {
+      showPicoVideo();
+      picoState('ok', '预录视频 · 循环播放');
+    }).catch(() => {
+      // 自动播放被拦（少见——已 muted）：仍显示视频首帧，用户交互后即播
+      showPicoVideo();
+      picoState('warn', '预录视频 · 待交互播放');
+    });
     return;
   }
-  // ③ 占位层（文案更新为可操作的指引）
+  // ③ 占位层（既无配置也无本地预录时）
+  showPicoPh();
   const hint = picoPh.querySelector('span');
-  if (hint) hint.textContent = cfg?.whep ? 'MediaMTX 未推流 · 请检查 OBS' : '放入 web/public/media/pico.mp4 或配置 PICO_WHEP_URL';
+  if (hint) hint.textContent = cfg?.whep ? 'MediaMTX 未推流 · 请检查 OBS' : '待接入（配置 PICO_WHEP_URL 或伴生服务视频源）';
   picoState('warn', '待接入（预录视频/实时流均未就位）');
 }
 

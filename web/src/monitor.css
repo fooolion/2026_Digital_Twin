@@ -34,6 +34,7 @@
     radial-gradient(ellipse 60% 55% at 50% 45%, rgba(20,52,96,.35), transparent 75%),
     linear-gradient(180deg, #081527, #060d1a);
 }
+.mn-video-ph[hidden] { display: none; } /* hidden 属性会被上面的 display:flex 打败，需显式兜住 */
 .mn-video-ph .ph-ico { opacity: .4; }
 .mn-video-ph b { font-size: 13px; font-weight: 500; }
 .mn-video-ph span { font-size: 11px; color: #56637a; }

@@ -236,7 +236,8 @@ tqListEl.innerHTML = TQ_NAMES.map((n, i) => `
     <span class="tq-val" id="tq-val-${i}">-- N·m</span>
   </li>`).join('');
 
-function updateTorque(tau: number[] | null): void {
+function updateTorque(tau: number[] | null, real: boolean): void {
+  if (real) { torqueRealMode = true; lastTauRealTs = Date.now(); }
   for (let i = 0; i < 7; i++) {
     const fill = document.getElementById(`tq-fill-${i}`);
     const val = document.getElementById(`tq-val-${i}`);
@@ -253,7 +254,36 @@ function updateTorque(tau: number[] | null): void {
     }
   }
 }
-updateTorque(null); // 初始占位
+
+/* ===== 力矩演示数据（无桥时的默认画面；真 telemetry 到达即让位，断桥 2s 回落）=====
+   幅值/偏置按重力负载分布拟真：肩肘承重大、腕部小、夹爪为夹持保持力。 */
+let torqueRealMode = false;
+let lastTauRealTs = 0;
+const TQ_DEMO = [
+  { base: 4.5, amp: 3.2, ph: 0.0 },  // J1 底座回转
+  { base: 14.0, amp: 6.5, ph: 1.2 }, // J2 肩（承重最大）
+  { base: 9.0, amp: 5.0, ph: 2.1 },  // J3 肘
+  { base: 3.5, amp: 2.4, ph: 0.6 },  // J4 腕俯仰
+  { base: 2.2, amp: 1.8, ph: 1.7 },  // J5 腕滚转
+  { base: 1.5, amp: 1.2, ph: 2.8 },  // J6 法兰
+  { base: 3.0, amp: 2.0, ph: 0.3 },  // Grip 夹持保持
+];
+let tqDemoT = 0;
+const tqSrcEl = document.getElementById('tq-src')!;
+function torqueDemoStep(): void {
+  tqDemoT += 0.6;
+  updateTorque(TQ_DEMO.map((s) => +(Math.sin(tqDemoT + s.ph) * s.amp + s.base).toFixed(1)), false);
+  tqSrcEl.textContent = '（演示数据 · 伴生服务在线时自动切换实时）';
+}
+updateTorque(null, false); // 初始占位
+window.setInterval(() => {
+  if (torqueRealMode && Date.now() - lastTauRealTs <= 2000) {
+    tqSrcEl.textContent = '（实时遥测 · 来自 PC 桥）';
+    return; // 真流新鲜：不产演示帧
+  }
+  if (torqueRealMode) tqSrcEl.textContent = '（演示数据 · 实时流已断开）';
+  torqueDemoStep();
+}, 600);
 
 /* ===== 全屏（兼容 Safari 的 webkit 前缀；无 API 时兜底 toast 可达） ===== */
 type FsElement = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
@@ -296,13 +326,13 @@ async function setupBridge(): Promise<void> {
           feedReal?.(j as number[]);
         }
         if (Array.isArray(p.tau) && p.tau.length >= 7 && p.tau.every((v) => typeof v === 'number' && Number.isFinite(v)) && fresh) {
-          updateTorque(p.tau as number[]);
+          updateTorque(p.tau as number[], true);
         }
       }
     },
     (reason) => {
       wsStat('off', `已断开（${reason}）`);
-      updateTorque(null);
+      updateTorque(null, false);
       // F3：桥断开 → 5s 后重探重连（服务重启场景自愈）
       window.setTimeout(() => void setupBridge(), 5000);
     },

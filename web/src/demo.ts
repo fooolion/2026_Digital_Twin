@@ -289,9 +289,6 @@ export function createDemo(deps: DemoDeps) {
       );
       busBlendT = now;
     }
-    graspTarget = target;
-    graspedQadr = target === 'cube' ? cubeQadr : busQadr;
-    graspedDofadr = target === 'cube' ? cubeDofadr : busDofadr;
     const q4 = 4 * endLinkId;
     _q1.set(data.xquat[q4 + 1], data.xquat[q4 + 2], data.xquat[q4 + 3], data.xquat[q4]); // eQ
     _q2.copy(_q1).invert(); // eQ⁻¹（复用临时量，勿动 _q1——后面还要用）
@@ -301,9 +298,12 @@ export function createDemo(deps: DemoDeps) {
       data.qpos[graspedQadr + 1] - data.xpos[e3 + 1],
       data.qpos[graspedQadr + 2] - data.xpos[e3 + 2],
     ).applyQuaternion(_q2);
+    // 关键：MuJoCo 四元数 qpos 是 wxyz，THREE.Quaternion.set 是 (x,y,z,w)——分量序
+    // 直传会把姿态打乱（母线 home 姿态被换成 120° 错姿态 → 夹取瞬间翻转 120° 成
+    // "竖直悬挂"，立方体因对称性看不出来）。项目第 5 次"字面相同约定不同"。
     _q3.set(
-      data.qpos[graspedQadr + 3], data.qpos[graspedQadr + 4],
-      data.qpos[graspedQadr + 5], data.qpos[graspedQadr + 6],
+      data.qpos[graspedQadr + 4], data.qpos[graspedQadr + 5],
+      data.qpos[graspedQadr + 6], data.qpos[graspedQadr + 3],
     );
     graspRelQuat.copy(_q2.multiply(_q3)); // eQ⁻¹·cQ
     graspHeld = true;

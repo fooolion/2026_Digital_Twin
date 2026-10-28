@@ -25,7 +25,7 @@
   #jpanel {
     position: fixed; right: 16px; top: 50%; transform: translateY(-50%);
     width: 264px; max-height: 92vh; overflow-y: auto; z-index: 10;
-    padding: 16px 16px 14px; border-radius: 6px;
+    padding: 16px 16px 14px; border-radius: var(--radius-panel); /* 与各页 hud-panel 同级圆角 */
     background: linear-gradient(180deg, rgba(13, 42, 79, 0.88), rgba(10, 26, 47, 0.78));
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     border: 1px solid rgba(0, 212, 255, 0.26);
@@ -47,7 +47,7 @@
   .jp-iconbtn {
     width: 26px; height: 26px; padding: 0;
     display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 8px; cursor: pointer; color: #8fa0b5;
+    border-radius: var(--radius-sm); cursor: pointer; color: #8fa0b5;
     background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.10);
     transition: color .15s ease, border-color .15s ease;
   }
@@ -62,7 +62,7 @@
     font-size: 13px; font-weight: 600; letter-spacing: .04em; color: #dfe7f3;
   }
   .jp-title::before {
-    content: ''; width: 3px; height: 14px; border-radius: 1px;
+    content: ''; width: 3px; height: 12px; border-radius: 1px; /* 与 hud-title 同规格：图标略小于文字 */
     background: #00d4ff; box-shadow: 0 0 8px rgba(0, 212, 255, 0.6);
   }
   .jp-mode {
@@ -120,7 +120,7 @@
   .jp-grip-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; }
   .jp-grip-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
   .jp-btn {
-    font: inherit; font-size: 12px; padding: 7px 0; border-radius: 9px; cursor: pointer;
+    font: inherit; font-size: 12px; padding: 7px 0; border-radius: var(--radius-btn); cursor: pointer;
     color: #b9c4d4; background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.10);
     transition: border-color .15s ease, color .15s ease, background .15s ease, transform .08s ease;
@@ -136,7 +136,7 @@
   .jp-pathinfo { font-size: 11px; color: var(--color-fog); font-variant-numeric: tabular-nums; }
   /* 复位 = 改变状态的操作指令，用琥珀色系与绿系开关按钮区分 + 点击确认反馈 */
   .jp-reset {
-    width: 100%; margin-top: 8px; padding: 8px 0; border-radius: 9px; cursor: pointer;
+    width: 100%; margin-top: 8px; padding: 8px 0; border-radius: var(--radius-btn); cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
     font: inherit; font-size: 12px; color: #ffcf9a;
     background: rgba(255, 180, 84, 0.07); border: 1px solid rgba(255, 180, 84, 0.30);

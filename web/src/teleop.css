@@ -4,11 +4,11 @@
   grid-template-columns: 300px 1fr;
   grid-template-rows: minmax(0, 1fr) auto;  /* 视口占满 + 映射/日志一行放下（一屏不滚动） */
 }
-.tp-left { display: flex; flex-direction: column; gap: 14px; }
+.tp-left { display: flex; flex-direction: column; gap: 12px; } /* 与 cp-side/mn-right 同一卡间距 */
 .tp-bottom { grid-column: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.tp-bottom .tp-card { padding: 12px 14px 10px; }
+.tp-bottom .tp-card { padding: 14px 14px 12px; } /* 与 hud-card 同规格 */
 .tp-log { max-height: 150px; }
-.tp-card { padding: 16px 16px 14px; }
+.tp-card { padding: 14px 14px 12px; }
 
 /* ── 安全联锁卡 ── */
 .tp-lock-card { --lock-glow: rgba(255, 180, 84, .4); transition: box-shadow .3s ease; box-shadow: 0 0 16px var(--lock-glow); } /* 辉光随 setLock 切换（LOCKED 琥珀/ARMED 绿/ESTOP 红） */
@@ -20,7 +20,7 @@
 
 .tp-hold-btn {
   position: relative; overflow: hidden; width: 100%; cursor: pointer;
-  padding: 11px 0; border-radius: 4px; font: inherit; font-size: 13px; color: #dfe7f3;
+  padding: 11px 0; border-radius: var(--radius-sm); font: inherit; font-size: 13px; color: #dfe7f3;
   background: rgba(0, 212, 255, 0.07); border: 1px solid rgba(0, 212, 255, 0.35);
   transition: border-color .15s ease;
   touch-action: none; /* 长按期间手指微滑别被浏览器滚动手势接管 */
@@ -36,7 +36,7 @@
 .tp-estop-btn {
   width: 100%; margin-top: 10px; cursor: pointer; font: inherit;
   font-size: 13.5px; font-weight: 600; letter-spacing: .1em; color: #ffd7d8;
-  padding: 12px 0; border-radius: 4px;
+  padding: 12px 0; border-radius: var(--radius-sm);
   background: linear-gradient(180deg, #6b1620, #3a0a10);
   border: 1px solid rgba(255, 77, 79, 0.55);
   box-shadow: 0 0 16px rgba(255, 77, 79, 0.25);

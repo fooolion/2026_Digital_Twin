@@ -60,7 +60,7 @@ body {
   color: rgba(255, 255, 255, 0.92);
 }
 .hud-title::before {
-  content: ""; width: 3px; height: 14px; border-radius: 1px;
+  content: ""; width: 3px; height: 12px; border-radius: 1px; /* 高 12px < 文字 13px：图标略小于文字 */
   background: var(--color-hudglow); box-shadow: 0 0 8px rgba(0, 212, 255, 0.6);
 }
 

@@ -62,7 +62,9 @@ export function loadBattery(): Promise<BatteryModel> {
         new THREE.MeshStandardMaterial({ color: 0xb87333, roughness: 0.35, metalness: 0.8 }),
       );
       bus.position.copy(BUSBAR_POS);
-      bus.quaternion.set(0, 0, 1, 0); // 绕 z 180°（与 MJCF battery_busbar quat 一致）
+      // 分量序陷阱：MJCF quat=(w,x,y,z)，THREE .set(x,y,z,w)——XML 的 "0 0 1 0" 是绕 y 180°，
+      // 直译成 .set(0,0,1,0) 会变成绕 z 180°（此前两页与仿真页不一致的根源）。对齐仿真页：
+      bus.quaternion.set(0, 1, 0, 0);
       group.add(bus);
     } catch (err) {
       console.warn('母线加载失败（电池其余部分不受影响）', err);

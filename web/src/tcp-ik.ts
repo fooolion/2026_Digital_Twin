@@ -25,9 +25,11 @@ export interface TcpIk {
   servo(target: readonly [number, number, number], dt: number): number;
   /** 离线求解：从 seed 出发迭代到收敛（≤SOLVE_MAX_ITER=150 轮），返回解的角度副本（不碰物理态）。
    *  axisDesired（可选）：末端轴（end_link x̂ = 夹爪指向）的世界方向目标。
-   *  j6（可选）：期望 J6 角（rad，对齐样件平行面）——轴约束解先置该值再锁 J6 拉回位置。 */
+   *  j6（可选）：期望 J6 角（rad，对齐样件平行面）——轴约束解先置该值再锁 J6 拉回位置。
+   *  j5（可选）：侧抓腕角绝对值（rad）——夹爪轴水平（如母线横梁上下平面夹持）时传入，
+   *  网格对 ±j5 取轴误差更优者，返回的 q[4] 即选定符号。 */
   solveTo(seed: Float64Array, target: readonly [number, number, number],
-          axisDesired?: readonly [number, number, number], j6?: number): Float64Array; // 恒有解（网格/迭代路径不返回 null）
+          axisDesired?: readonly [number, number, number], j6?: number, j5?: number): Float64Array; // 恒有解（网格/迭代路径不返回 null）
   /** 把 IK 解重置为物理当前关节角（抓球/死区回位时调用——否则 IK 解与物理姿态
    *  脱节，回位瞬间 CTC 目标角跳变，臂会"弹"一下）。 */
   resetToPhysics(): void;
@@ -194,13 +196,14 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
     target: readonly [number, number, number],
     axisDesired?: readonly [number, number, number],
     j6?: number,
+    j5?: number,
   ): Float64Array {
     // 影子纪律与 servo 一致：进出恢复物理态——中途 putQ 的候选解（含被拒的）
     // 绝不能留在 data.qpos 里，否则演示建计划一结束物理臂被瞬移到垃圾姿态
     const saved = new Float64Array(data.qpos.length);
     saved.set(data.qpos);
     try {
-      const q = axisDesired ? solveByGrid(target, axisDesired) : solve3D(seed, target);
+      const q = axisDesired ? solveByGrid(target, axisDesired, j5) : solve3D(seed, target);
       // j6 期望（对齐样件平行面）：直搜解 J6 恒 0——先置期望值，再锁 J6 用其余关节
       // 拉回位置（J6 滚转会带 tcp 漂移 ~11.5mm，由 J1..J4 补偿；轴方向大体保持竖直）
       if (j6 !== undefined) {
@@ -246,33 +249,43 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
     return q;
   }
 
-  /** 6D 航点三级网格直搜：J1 对准目标 yaw、J5=J6=0（J2/J3/J4 竖直平面三关节足以
-   *  实现竖直下压；实测接近/下探/投放 ≤5mm、轴向 −1.0，~60ms/航点）。
+  /** 6D 航点三级网格直搜：J1 对准目标 yaw、J2/J3/J4 竖直平面三关节求解
+   *  （竖直下压 J5=J6=0；侧抓传 j5=腕角绝对值，网格对 ±j5 取轴误差更优者）。
    *  粗 10° 宽窗 → ±10°·5° → ±4°·2°，纯函数评估、无局部最小陷阱。 */
   function solveByGrid(
     target: readonly [number, number, number],
     axisDesired: readonly [number, number, number],
+    j5?: number,
   ): Float64Array {
     const yaw = Math.atan2(target[1], target[0]);
     const D = Math.PI / 180;
     const des = [...axisDesired];
-    /** 评 j2/j3/j4（度）：写入 data + forward + 位置误差 + AXIS_W×轴向误差 */
-    const evalQ = (j2: number, j3: number, j4: number): number => {
+    let j5Best = 0;
+    /** 评 j2/j3/j4（度）+ j5（rad，直写）：写入 data + forward + 位置误差 + AXIS_W×轴向误差 */
+    const evalQ = (j2: number, j3: number, j4: number, j5v: number): number => {
       for (let i = 0; i < N; i++) data.qpos[i] = 0;
       data.qpos[0] = yaw;
       data.qpos[1] = j2 * D; data.qpos[2] = j3 * D; data.qpos[3] = j4 * D;
+      data.qpos[4] = j5v;
       forward();
       const c = tcp();
       return Math.hypot(target[0] - c[0], target[1] - c[1], target[2] - c[2]) +
         AXIS_W * norm3(cross3(endAxis(), des));
     };
+    // 侧抓（j5 传入）：±j5 哪个使轴误差更小（J5 轴方向决定，解析上取决于安装）
+    if (j5 !== undefined) {
+      const e1 = evalQ(-90, -60, 15, j5);
+      const e2 = evalQ(-90, -60, 15, -j5);
+      j5Best = e1 <= e2 ? j5 : -j5;
+    }
+    const withJ5 = (j2: number, j3: number, j4: number): number => evalQ(j2, j3, j4, j5Best);
     let best = [-90, -60, 15];
-    let bestErr = evalQ(best[0], best[1], best[2]);
+    let bestErr = withJ5(best[0], best[1], best[2]);
     // 一级：肘上工作区宽窗
     for (let j2 = -140; j2 <= -60; j2 += 10)
       for (let j3 = -110; j3 <= -10; j3 += 10)
         for (let j4 = -60; j4 <= 88; j4 += 10) {
-          const e = evalQ(j2, j3, j4);
+          const e = withJ5(j2, j3, j4);
           if (e < bestErr) { bestErr = e; best = [j2, j3, j4]; }
         }
     // 二/三级：围绕当前最优逐步细化
@@ -282,12 +295,12 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
         for (let j3 = b3 - span; j3 <= b3 + span; j3 += step)
           for (let j4 = Math.max(-107, b4 - span); j4 <= Math.min(90, b4 + span); j4 += step) {
             if (j2 > 0 || j3 > 0) continue; // J2/J3 上限 0
-            const e = evalQ(j2, j3, j4);
+            const e = withJ5(j2, j3, j4);
             if (e < bestErr) { bestErr = e; best = [j2, j3, j4]; }
           }
     }
     return new Float64Array([
-      clip(yaw, lo[0], hi[0]), best[0] * D, best[1] * D, best[2] * D, 0, 0,
+      clip(yaw, lo[0], hi[0]), best[0] * D, best[1] * D, best[2] * D, j5Best, 0,
     ]);
   }
 

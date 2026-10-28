@@ -98,16 +98,16 @@ export function createDemo(deps: DemoDeps) {
     : null;
   const busPin = hasBusbar ? { pos: busHome!.pos.clone(), quat: busHome!.quat.clone() } : null;
 
-  // 夹取参数（几何推导，2026-10-28 母线 STL 切片分析）：
-  //   下部横梁模型系中心 (-30,-64,-44)mm、截面 20(x)×26(y)、长轴 z；
-  //   世界旋转 q_b=绕x90°（R·(a,b,c)=(a,-c,b)）→ 夹持面 = x_m 两侧面（世界 x 向、间距 20mm）。
-  //   TCP 偏移 = 梁中心 + 8mm 世界竖直（= 模型 +ŷ）→ (-30,-56,-44)mm（模型系）
+  // 夹取参数（2026-10-28 第三版：顶抓左右侧面——上下平面侧抓经全网格扫描证实机械
+  // 不可达：横梁位于半径 0.30m/高 33mm，腕部仅 J4 一个俯仰自由度，该点位夹爪轴
+  // 极限偏离水平 26°（径向/切向/J1 偏转全扫过），无法水平侧夹。回退顶抓夹 x_m
+  // 两侧面（间距 20mm，世界 x 向），J6=69.4° 对准平行面——实测可用）
   const BUSBAR_TCP_OFFSET = new THREE.Vector3(-0.030, -0.056, -0.044);
-  const BUSBAR_J6 = 69.4 * Math.PI / 180; // 开合方位 = yaw+90°+J6 ≡ 0°(mod180°)：夹取点 yaw≈20.6° → J6=69.4°（对准平行面）
+  const BUSBAR_J6 = 69.4 * Math.PI / 180;
   const GRIP_BUSBAR_RAD = 1.25;           // 20mm 夹持间距 → 单指 10mm ÷ 齿轮半径 8mm
   const BUSBAR_LIFT = 0.06;               // 拔出高度（孔板脱离极柱 + 余量）
-  const BUSBAR_PLACE_XY = new THREE.Vector3(0.30, 0.30, 0); // 黄圈圆心（用户指定）
-  const BUSBAR_PLACE_TCP_Z = 0.023;       // 母线腿贴桌（最低点 z_w=0.018→留 2mm）时的 TCP 高度
+  const BUSBAR_PLACE_XY = new THREE.Vector3(-0.30, 0.30, 0); // 黄圈圆心（用户定稿坐标）
+  const BUSBAR_PLACE_TCP_Z = 0.023;       // 母线最低点贴桌时的 TCP 高度（顶抓 dz=-56mm）
 
   // 投放点 = 出生点 + 固定偏移；创建时即初始化（投放环从加载起就在正确位置）
   // 定稿（目视调整）：出生 (0.30,0.30)、投放 = 出生 + (-0.3,0.1) = (0,0.40)——
@@ -151,10 +151,11 @@ export function createDemo(deps: DemoDeps) {
     ik.resetToPhysics();
   }
 
-  /** 离线解一个航点：接触关键航点带竖直下压轴约束（网格直搜），过渡航点纯位置（链式播种） */
+  /** 离线解一个航点：axisVec 给定轴约束（母线侧抓水平径向）；否则竖直下压（网格直搜） */
   function solveWaypoint(seed: Float64Array, p: readonly [number, number, number],
-                         axis?: boolean, j6?: number): Float64Array {
-    return ik.solveTo(seed, p, axis ? GRASP_AXIS : undefined, j6);
+                         axis?: boolean, j6?: number,
+                         axisVec?: readonly [number, number, number], j5?: number): Float64Array {
+    return ik.solveTo(seed, p, axisVec ?? (axis ? GRASP_AXIS : undefined), j6, j5);
   }
 
   /** 生成整段演示计划（8 航点 → 8 段关节插值） */
@@ -190,9 +191,9 @@ export function createDemo(deps: DemoDeps) {
     segs[6].hold = 0.8;
   }
 
-  /** 拆母线演示计划（A11 阶段二）：夹住横梁平行面（J6=69.4° 对准世界 x 向夹持面）
+  /** 拆母线演示计划（A11 阶段二）：顶抓夹横梁左右平行面（J6=69.4° 对准世界 x 向）
    *  → 垂直拔出（密集中间航点保直线——孔柱 0.2mm 配合，斜拔视觉穿模）
-   *  → 搬运至黄圈 (0.30,0.30) 放置。夹取点运行时从母线出生位姿推导（XML 位姿联动）。 */
+   *  → 搬运至黄圈 (-0.30,0.30) 放置。夹取点运行时从母线出生位姿推导（XML 位姿联动）。 */
   function buildBusbarPlan(): void {
     if (!hasBusbar || !busHome) throw new Error('场景中没有 battery_busbar（母线）');
     const g = busHome.pos.clone().add(BUSBAR_TCP_OFFSET.clone().applyQuaternion(busHome.quat));
@@ -207,8 +208,8 @@ export function createDemo(deps: DemoDeps) {
       { p: [g.x, g.y, g.z + 0.02], label: '垂直拔出·一', axis: true, j6: BUSBAR_J6 },
       { p: [g.x, g.y, g.z + 0.04], label: '垂直拔出·二', axis: true, j6: BUSBAR_J6 },
       { p: [g.x, g.y, g.z + BUSBAR_LIFT], label: '拔出', axis: true, j6: BUSBAR_J6 },
-      { p: [g.x, g.y, SAFE_Z], label: '升起', j6: BUSBAR_J6 },
-      { p: [P.x, P.y, SAFE_Z], label: '搬运', j6: BUSBAR_J6 },
+      { p: [g.x, g.y, SAFE_Z], label: '升起', axis: true, j6: BUSBAR_J6 },
+      { p: [P.x, P.y, SAFE_Z], label: '搬运', axis: true, j6: BUSBAR_J6 },
       { p: [P.x, P.y, BUSBAR_PLACE_TCP_Z], label: '下降放置', axis: true, j6: BUSBAR_J6, release: 'busbar', grip: deps.gripOpenRad, settle: 1.5 },
       { p: [P.x + 0.05, P.y + 0.05, SAFE_Z], label: '回位', grip: 0 },
     ];
@@ -222,7 +223,7 @@ export function createDemo(deps: DemoDeps) {
       segs.push({ q, p: wp.p, dur, hold: 0, applied: false, grasp: wp.grasp, release: wp.release, gripCmd: wp.grip, settle: wp.settle, label: wp.label });
       seed = q;
     }
-    segs[2].hold = 2.5; // 夹持闭合时间（20mm 行程比 40mm 立方快，但留足包覆可见性）
+    segs[2].hold = 2.5; // 夹持闭合时间（留足包覆可见性）
     segs[8].hold = 0.8;
   }
 

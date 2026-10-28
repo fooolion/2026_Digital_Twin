@@ -1,7 +1,7 @@
 /**
  * 任务控制器：一键夹取演示（关节空间轨迹播放器 + 运动学跟随抓取）
  *           + 路径录制回放（Catmull-Rom 关节插值 + 引导段）。
- * Rev: P4 · 2026-10-22
+ * Rev: P5 · 2026-10-29
  */
 import * as THREE from 'three';
 import type { TcpIk } from './tcp-ik';
@@ -50,6 +50,7 @@ interface Seg {
   applied: boolean;           // 到位事件是否已触发
   grasp?: 'cube' | 'busbar';  // 到位：闭合夹爪 + 捕获相对位姿进入跟随（目标 body）
   release?: 'cube' | 'busbar';// 到位：退出跟随（样件钉住在当前位置）
+  drop?: boolean;             // 到位释放时播放落体动画到地面再钉住（母线放置专用；手动停止不落）
   gripCmd?: number;           // 到位：下发夹爪目标
   settle?: number;            // 到位后等待物理 TCP 收敛的上限（s）——插值走完≠物理到位
   label: string;
@@ -98,19 +99,29 @@ export function createDemo(deps: DemoDeps) {
     : null;
   const busPin = hasBusbar ? { pos: busHome!.pos.clone(), quat: busHome!.quat.clone() } : null;
 
-  // 夹取参数（2026-10-28 第三版·侧抓，坐标修正后重推导）：
+  // 夹取参数（2026-10-29 第四版·同分支连续侧抓）：
   //   母线渲染网格 = 文件坐标（未修正 SW 原点）；横梁中心文件坐标 (11,15,63)mm。
   //   世界 = busHome.pos + Rx90·(file·0.001) → 横梁中心 (0.326, 0, 0.112)，
   //   截面 20mm(世界 x) × 26mm(世界 z 竖直)、长轴 80mm 沿世界 y。
-  //   侧抓：夹爪轴水平 +x、指闭合线天然竖直（该姿态下 J5=J6=0 即竖直，实测 fingerV=1.0），
-  //   夹住横梁上下平面（26mm 间距 → 单指 13mm ÷ 齿轮半径 8mm = 1.625 rad）。
+  //   侧抓：夹爪轴水平径向滑入，J6=90° 纯滚转使指闭合线竖直，夹住横梁上下平面
+  //   （26mm 间距 → 单指 13mm ÷ 齿轮半径 8mm = 1.625 rad）。
+  //   全计划锁 B 分支（腕反折族 J4≈−88..−107）：本臂水平径向位姿只有肘上/肘下两族解，
+  //   低处（z≤0.17）只有 B 族可达，而 B 族上限 ~0.20——升起/搬运从 0.30 压到 0.20、
+  //   放置 0.16 松爪落体进圈，持物段（拔出→放置）同一分支贯穿，母线不翻滚。
   const BUSBAR_TCP_OFFSET = new THREE.Vector3(0.011, 0.015, 0.063); // 文件坐标（与渲染网格同系！）
   const GRIP_BUSBAR_RAD = 1.625;      // 上下平面间距 26mm → 单指 13mm ÷ 齿轮半径 8mm
-  const BUSBAR_AXIS_IN = [1, 0, 0] as const;   // 夹取/拔出段轴：水平 +x（腕在母线后方）
-  const BUSBAR_AXIS_OUT = [-1, 0, 0] as const; // 搬运/放置段轴：水平 −x（腕在基座侧可达）
   const BUSBAR_LIFT = 0.06;           // 拔出高度（孔板脱离极柱 + 余量）
+  const BUSBAR_HIGH_Z = 0.20;         // 升起/搬运高度（B 分支可达上限内；0.30 需换分支）
   const BUSBAR_PLACE_XY = new THREE.Vector3(-0.30, 0.30, 0); // 黄圈圆心（用户定稿坐标）
-  const BUSBAR_PLACE_TCP_Z = 0.112;   // 放置 TCP 高度 = 抓取高度（母线背棱落地）
+  const BUSBAR_PLACE_TCP_Z = 0.16;    // 释放高度：松爪后自由落体 ~15cm 落入圈心
+  const BUS_REST_Z = 0.013;           // 落地静止高度（横梁截面 26mm 竖直 → 半高）
+  const GRAV = 9.81;                  // 落体动画重力（m/s²）
+  /** 航点径向轴：水平外向单位向量（随航点 yaw 同转）。固定世界方向轴（如 [1,0,0]）在
+   *  yaw≠0 的航点不可满足——J5=0 时夹爪轴被锁在目标射线的竖直平面内，轴约束失效。 */
+  const busRadial = (p: readonly [number, number, number]): [number, number, number] => {
+    const l = Math.hypot(p[0], p[1]) || 1;
+    return [p[0] / l, p[1] / l, 0];
+  };
 
   // 投放点 = 出生点 + 固定偏移；创建时即初始化（投放环从加载起就在正确位置）
   // 定稿（目视调整）：出生 (0.30,0.30)、投放 = 出生 + (-0.3,0.1) = (0,0.40)——
@@ -194,41 +205,59 @@ export function createDemo(deps: DemoDeps) {
     segs[6].hold = 0.8;
   }
 
-  /** 拆母线演示计划（A11 阶段二·侧抓定稿）：夹爪轴水平 +x 滑入、指闭合线竖直
-   *  （该姿态 J5=J6=0 即竖直，实测 fingerV=1.0）夹住横梁上下平面（26mm）
-   *  → 垂直拔出（密集中间航点保直线——孔柱 0.2mm 配合，斜拔视觉穿模）
-   *  → 搬运至黄圈 (-0.30,0.30) 放置（放置段轴翻转 −x：腕回基座侧可达）。
+  /** 拆母线演示计划（A11 阶段二·同分支连续版）：夹爪轴水平径向滑入、J6=90° 指闭合线
+   *  竖直，夹住横梁上下平面（26mm）→ 垂直拔出（密集中间航点保直线——孔柱 0.2mm 配合，
+   *  斜拔视觉穿模）→ 升起/搬运 0.20 → 黄圈 (-0.30,0.30) 上方 0.16 松爪，落体进圈。
+   *  解算顺序 ≠ 播放顺序：夹持点先全局解锚定 B 分支（腕反折族——低处水平径向位姿
+   *  只有该族可达），接近/展开反向解、拔出→放置正向解，全部 branchLock 窗口搜索，
+   *  持物段（拔出→放置）同一分支贯穿。逐航点独立全局搜索会在肘上/肘下两族解之间
+   *  跳变，关节插值穿过跳变时末端姿态大幅翻滚——母线"夹取后竖直悬挂"的根因。
    *  夹取点运行时从母线出生位姿推导（XML 位姿联动）。 */
   function buildBusbarPlan(): void {
     if (!hasBusbar || !busHome) throw new Error('场景中没有 battery_busbar（母线）');
     const g = busHome.pos.clone().add(BUSBAR_TCP_OFFSET.clone().applyQuaternion(busHome.quat));
+    const G: [number, number, number] = [g.x, g.y, g.z];
+    const ACC: [number, number, number] = [g.x - 0.02, g.y, g.z];        // 接近：夹持点前 2cm（B 分支后撤极限内）
+    const STG: [number, number, number] = [g.x - 0.03, g.y, g.z + 0.05]; // 展开：接近点上前方（空手自由解）
     const P = BUSBAR_PLACE_XY;
-    const W: {
-      p: [number, number, number]; label: string; axis?: boolean;
-      axisVec?: readonly [number, number, number]; j6?: number;
-      grasp?: 'cube' | 'busbar'; release?: 'cube' | 'busbar'; grip?: number; settle?: number;
-    }[] = [
-      { p: [g.x - 0.10, g.y, SAFE_Z], label: '展开', axisVec: BUSBAR_AXIS_IN, j6: Math.PI / 2, grip: deps.gripOpenRad },
-      { p: [g.x - 0.08, g.y, g.z], label: '接近母线', axisVec: BUSBAR_AXIS_IN, j6: Math.PI / 2 },
-      { p: [g.x, g.y, g.z], label: '侧向夹持', axisVec: BUSBAR_AXIS_IN, j6: Math.PI / 2, grasp: 'busbar', grip: GRIP_BUSBAR_RAD, settle: 2.0 },
-      { p: [g.x, g.y, g.z + 0.02], label: '垂直拔出·一', axisVec: BUSBAR_AXIS_IN, j6: Math.PI / 2 },
-      { p: [g.x, g.y, g.z + 0.04], label: '垂直拔出·二', axisVec: BUSBAR_AXIS_IN, j6: Math.PI / 2 },
-      { p: [g.x, g.y, g.z + BUSBAR_LIFT], label: '拔出', axisVec: BUSBAR_AXIS_IN, j6: Math.PI / 2 },
-      { p: [g.x, g.y, SAFE_Z], label: '升起', axisVec: BUSBAR_AXIS_IN, j6: Math.PI / 2 },
-      { p: [P.x, P.y, SAFE_Z], label: '搬运', axisVec: BUSBAR_AXIS_OUT, j6: Math.PI / 2 },
-      { p: [P.x, P.y, BUSBAR_PLACE_TCP_Z], label: '下降放置', axisVec: BUSBAR_AXIS_OUT, j6: Math.PI / 2, release: 'busbar', grip: deps.gripOpenRad, settle: 1.5 },
-      { p: [P.x + 0.05, P.y + 0.05, SAFE_Z], label: '回位', grip: 0 },
-    ];
+    const CARRY: [number, number, number] = [P.x, P.y, BUSBAR_HIGH_Z];
+    const PLACE: [number, number, number] = [P.x, P.y, BUSBAR_PLACE_TCP_Z];
+    const LOCK = true;
+    const lockSolve = (seed: Float64Array, p: readonly [number, number, number]): Float64Array =>
+      ik.solveTo(seed, p, busRadial(p), Math.PI / 2, undefined, LOCK);
+    const qGrasp = lockSolve(new Float64Array(ik.angles), G); // 种子=当前姿态：窗口必不达标 → 全局搜索锚定分支
+    const qAcc = lockSolve(qGrasp, ACC);
+    const qStg = ik.solveTo(qAcc, STG); // 展开空手：无轴约束，种子局部解（solve3D 天然同分支）
+    const lift = (dz: number, seed: Float64Array): Float64Array =>
+      lockSolve(seed, [G[0], G[1], G[2] + dz]);
+    const qL1 = lift(0.02, qGrasp);
+    const qL2 = lift(0.04, qL1);
+    const qL3 = lift(BUSBAR_LIFT, qL2);
+    const qRise = lockSolve(qL3, [G[0], G[1], BUSBAR_HIGH_Z]);
+    const qCarry = lockSolve(qRise, CARRY);
+    const qPlace = lockSolve(qCarry, PLACE);
+    const HOME: [number, number, number] = [P.x + 0.05, P.y + 0.05, SAFE_Z];
+    const qHome = ik.solveTo(qPlace, HOME); // 回位空手自由解
     segs = [];
-    let seed: Float64Array<ArrayBufferLike> = new Float64Array(ik.angles);
-    for (const wp of W) {
-      const q = solveWaypoint(seed, wp.p, undefined, wp.j6, wp.axisVec);
+    const mk = (q: Float64Array<ArrayBufferLike>, p: readonly [number, number, number],
+                label: string, extra: Partial<Seg> = {}): void => {
+      // 段时长按"播放顺序"的前一段算（解算链与播放顺序不同）
+      const prev = segs.length ? segs[segs.length - 1].q : new Float64Array(ik.angles);
       let maxD = 0;
-      for (let i = 0; i < 6; i++) maxD = Math.max(maxD, Math.abs(q[i] - seed[i]));
+      for (let i = 0; i < 6; i++) maxD = Math.max(maxD, Math.abs(q[i] - prev[i]));
       const dur = Math.min(6, Math.max(0.9, maxD / JOINT_SPEED + 0.25));
-      segs.push({ q, p: wp.p, dur, hold: 0, applied: false, grasp: wp.grasp, release: wp.release, gripCmd: wp.grip, settle: wp.settle, label: wp.label });
-      seed = q;
-    }
+      segs.push({ q, p, dur, hold: 0, applied: false, label, ...extra });
+    };
+    mk(qStg, STG, '展开', { gripCmd: deps.gripOpenRad }); // 先张开夹爪再接近
+    mk(qAcc, ACC, '接近母线');
+    mk(qGrasp, G, '侧向夹持', { grasp: 'busbar', gripCmd: GRIP_BUSBAR_RAD, settle: 2.0 });
+    mk(qL1, [G[0], G[1], G[2] + 0.02], '垂直拔出·一');
+    mk(qL2, [G[0], G[1], G[2] + 0.04], '垂直拔出·二');
+    mk(qL3, [G[0], G[1], G[2] + BUSBAR_LIFT], '拔出');
+    mk(qRise, [G[0], G[1], BUSBAR_HIGH_Z], '升起');
+    mk(qCarry, CARRY, '搬运');
+    mk(qPlace, PLACE, '下降放置', { release: 'busbar', drop: true, gripCmd: deps.gripOpenRad, settle: 1.5 });
+    mk(qHome, HOME, '回位', { gripCmd: 0 }); // 回位收拢夹爪（空手移动的标准姿态，演示结束保持闭合）
     segs[2].hold = 2.5; // 夹持闭合时间（留足包覆可见性）
     segs[8].hold = 0.8;
   }
@@ -243,6 +272,9 @@ export function createDemo(deps: DemoDeps) {
   let busBlendT = -1;            // 混合起始时刻（ms；<0 = 非混合态）
   const busBlendPos = new THREE.Vector3();
   const busBlendQuat = new THREE.Quaternion();
+  // 松爪落体（母线放置）：freejoint 无碰撞，松爪即钉会悬浮半空——先播匀加速下落
+  // 动画到地面静止高度（姿态保持不变）再钉住
+  let busDrop: { from: THREE.Vector3; quat: THREE.Quaternion; t0: number; dur: number } | null = null;
   function beginGrasp(target: 'cube' | 'busbar', now: number): void {
     if (target === 'cube' && !hasCube) return;
     if (target === 'busbar' && !hasBusbar) return;
@@ -277,22 +309,50 @@ export function createDemo(deps: DemoDeps) {
     graspHeld = true;
   }
 
-  /** 释放跟随：母线钉住在当前位姿（freejoint 无碰撞，不钉会掉）；绿块走物理 */
-  function releaseGrasp(target: 'cube' | 'busbar'): void {
+  /** 释放跟随：绿块走物理；母线钉住当前位姿——drop=true（放置航点）先播落体动画
+   *  再钉到地面，手动停止不带 drop：原地钉住（freejoint 无碰撞，不钉会穿桌坠落） */
+  function releaseGrasp(target: 'cube' | 'busbar', drop = false): void {
     graspHeld = false;
     if (target === 'busbar' && hasBusbar && busPin) {
-      busPin.pos.set(data.qpos[busQadr], data.qpos[busQadr + 1], data.qpos[busQadr + 2]);
-      busPin.quat.set(
+      const px = data.qpos[busQadr], py = data.qpos[busQadr + 1], pz = data.qpos[busQadr + 2];
+      const quat = new THREE.Quaternion(
         data.qpos[busQadr + 4], data.qpos[busQadr + 5],
         data.qpos[busQadr + 6], data.qpos[busQadr + 3],
       );
+      if (drop && pz > BUS_REST_Z + 0.005) {
+        busDrop = {
+          from: new THREE.Vector3(px, py, pz), quat,
+          t0: performance.now(), dur: Math.sqrt(2 * (pz - BUS_REST_Z) / GRAV),
+        };
+        return; // busPin 在落体结束时写入（busbarIdleTick）
+      }
+      busPin.pos.set(px, py, pz);
+      busPin.quat.copy(quat);
     }
   }
 
-  /** 母线钉住（sim.ts 主循环每帧调，任何状态）：非跟随时写回钉点位姿 + 清速度 */
+  /** 母线钉住（sim.ts 主循环每帧调，任何状态）：落体动画 → 钉点位姿写回 + 清速度 */
   function busbarIdleTick(): void {
     if (!hasBusbar || !busPin) return;
     if (graspTarget === 'busbar' && graspHeld) return; // 跟随中由跟随逻辑写
+    if (busDrop) {
+      const f = Math.min(1, (performance.now() - busDrop.t0) / (busDrop.dur * 1000));
+      const t = f * busDrop.dur;
+      data.qpos[busQadr] = busDrop.from.x;
+      data.qpos[busQadr + 1] = busDrop.from.y;
+      data.qpos[busQadr + 2] = Math.max(busDrop.from.z - 0.5 * GRAV * t * t, BUS_REST_Z);
+      data.qpos[busQadr + 3] = busDrop.quat.w;
+      data.qpos[busQadr + 4] = busDrop.quat.x;
+      data.qpos[busQadr + 5] = busDrop.quat.y;
+      data.qpos[busQadr + 6] = busDrop.quat.z;
+      for (let i = 0; i < 6; i++) data.qvel[busDofadr + i] = 0;
+      if (f >= 1) {
+        busPin.pos.set(busDrop.from.x, busDrop.from.y, BUS_REST_Z);
+        busPin.quat.copy(busDrop.quat);
+        busDrop = null;
+      }
+      return;
+    }
     data.qpos[busQadr] = busPin.pos.x;
     data.qpos[busQadr + 1] = busPin.pos.y;
     data.qpos[busQadr + 2] = busPin.pos.z;
@@ -307,6 +367,7 @@ export function createDemo(deps: DemoDeps) {
   function resetBusbar(): void {
     if (!hasBusbar || !busHome) return;
     graspHeld = false;
+    busDrop = null;
     data.qpos[busQadr] = busHome.pos.x;
     data.qpos[busQadr + 1] = busHome.pos.y;
     data.qpos[busQadr + 2] = busHome.pos.z;
@@ -329,7 +390,7 @@ export function createDemo(deps: DemoDeps) {
   function applySeg(seg: Seg, now: number): void {
     seg.applied = true;
     if (seg.grasp) beginGrasp(seg.grasp, now);
-    if (seg.release) releaseGrasp(seg.release);
+    if (seg.release) releaseGrasp(seg.release, seg.drop === true);
     if (seg.gripCmd !== undefined) deps.setGripTarget(seg.gripCmd);
   }
 

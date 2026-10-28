@@ -2,7 +2,7 @@
  * TCP 逆运动学模块：servo() 拖拽逐帧伺服（3×3 DLS）+ solveTo() 离线航点求解
  *           （3D 链式迭代 / 带竖直下压轴约束时走三级网格直搜——6D 迭代法在此臂病态不可用）。
  * 影子纪律：求解在 data.qpos 影子上进行，进出必须 save/restore。
- * Rev: P1/P4 · 2026-10-22
+ * Rev: P1/P5 · 2026-10-29
  */
 
 // 参考站同名参数（实测验证过的量级）
@@ -27,9 +27,14 @@ export interface TcpIk {
    *  axisDesired（可选）：末端轴（end_link x̂ = 夹爪指向）的世界方向目标。
    *  j6（可选）：期望 J6 角（rad，对齐样件平行面）——轴约束解先置该值再锁 J6 拉回位置。
    *  j5（可选）：侧抓腕角绝对值（rad）——夹爪轴水平（如母线横梁上下平面夹持）时传入，
-   *  网格对 ±j5 取轴误差更优者，返回的 q[4] 即选定符号。 */
+   *  网格对 ±j5 取轴误差更优者，返回的 q[4] 即选定符号。
+   *  branchLock（可选）：true 时先围绕 seed 解的同分支邻域（±35°）窗口搜索，位置 <4cm 且
+   *  轴误差 <8.6° 即采纳，不达标才回退全局搜索——持物段（母线拆解）分支连续性的关键：
+   *  本臂水平径向位姿有肘上/肘下两族解，逐航点独立全局搜索会在两族间跳变，关节插值
+   *  穿过跳变时末端姿态大幅翻滚（持物翻滚/母线竖直悬挂的根因）。 */
   solveTo(seed: Float64Array, target: readonly [number, number, number],
-          axisDesired?: readonly [number, number, number], j6?: number, j5?: number): Float64Array; // 恒有解（网格/迭代路径不返回 null）
+          axisDesired?: readonly [number, number, number], j6?: number, j5?: number,
+          branchLock?: boolean): Float64Array; // 恒有解（网格/迭代路径不返回 null）
   /** 把 IK 解重置为物理当前关节角（抓球/死区回位时调用——否则 IK 解与物理姿态
    *  脱节，回位瞬间 CTC 目标角跳变，臂会"弹"一下）。 */
   resetToPhysics(): void;
@@ -197,13 +202,16 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
     axisDesired?: readonly [number, number, number],
     j6?: number,
     j5?: number,
+    branchLock?: boolean,
   ): Float64Array {
     // 影子纪律与 servo 一致：进出恢复物理态——中途 putQ 的候选解（含被拒的）
     // 绝不能留在 data.qpos 里，否则演示建计划一结束物理臂被瞬移到垃圾姿态
     const saved = new Float64Array(data.qpos.length);
     saved.set(data.qpos);
     try {
-      const q = axisDesired ? solveByGrid(target, axisDesired, j5) : solve3D(seed, target);
+      const q = axisDesired
+        ? solveByGrid(target, axisDesired, j5, branchLock ? seed : undefined)
+        : solve3D(seed, target);
       // j6 期望（对齐样件平行面）：直搜解 J6 恒 0——先置期望值，再锁 J6 用其余关节
       // 拉回位置（J6 滚转会带 tcp 漂移 ~11.5mm，由 J1..J4 补偿；轴方向大体保持竖直）
       if (j6 !== undefined) {
@@ -217,7 +225,10 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
     }
   }
 
-  const AXIS_W = 0.5;    // 轴向误差权重（rad ↔ m 折算）
+  const AXIS_W = 0.5;      // 轴向误差权重（rad ↔ m 折算）
+  const WIN_SPAN = 35;     // branchLock 窗口半宽（deg）：同分支邻域
+  const WIN_GATE_P = 0.04; // 窗口解验收：位置误差 <4cm（超出 → 全局重搜，允许必要换分支）
+  const WIN_GATE_A = 0.15; // 窗口解验收：轴误差 <0.15（≈8.6°）
 
   /** 纯位置 3D DLS：链式种子迭代到收敛（无姿态诉求的过渡航点，历史验证收敛）。
    *  j6Lock：锁定 J6（rad）只解其余关节——配合 solveTo 的 J6 期望做位置拉回。 */
@@ -251,11 +262,14 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
 
   /** 6D 航点三级网格直搜：J1 对准目标 yaw、J2/J3/J4 竖直平面三关节求解
    *  （竖直下压 J5=J6=0；侧抓传 j5=腕角绝对值，网格对 ±j5 取轴误差更优者）。
-   *  粗 10° 宽窗 → ±10°·5° → ±4°·2°，纯函数评估、无局部最小陷阱。 */
+   *  粗 10° 宽窗 → ±10°·5° → ±4°·2°，纯函数评估、无局部最小陷阱。
+   *  seed（可选）：先做种子 ±35° 窗口搜索（同分支连续，5° 粗扫 + 两级细化），
+   *  达标即返回；否则走全局三级搜索。 */
   function solveByGrid(
     target: readonly [number, number, number],
     axisDesired: readonly [number, number, number],
     j5?: number,
+    seed?: Float64Array,
   ): Float64Array {
     const yaw = Math.atan2(target[1], target[0]);
     const D = Math.PI / 180;
@@ -279,6 +293,48 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
       j5Best = e1 <= e2 ? j5 : -j5;
     }
     const withJ5 = (j2: number, j3: number, j4: number): number => evalQ(j2, j3, j4, j5Best);
+    // —— 窗口优先（branchLock）：围绕种子解的同分支邻域搜索。窗口解用分量误差验收
+    //    （位置/轴，非加权代价）——达标即返回，持物段绝不换分支；不达标回退全局。 ——
+    if (seed) {
+      const loD = [lo[1] / D, lo[2] / D, lo[3] / D], hiD = [hi[1] / D, hi[2] / D, hi[3] / D];
+      const s2 = clip(seed[1] / D, loD[0], hiD[0]);
+      const s3 = clip(seed[2] / D, loD[1], hiD[1]);
+      const s4 = clip(seed[3] / D, loD[2], hiD[2]);
+      let wBest: number[] | null = null;
+      let wErr = Infinity;
+      for (let j2 = Math.max(loD[0], s2 - WIN_SPAN); j2 <= Math.min(hiD[0], s2 + WIN_SPAN); j2 += 5)
+        for (let j3 = Math.max(loD[1], s3 - WIN_SPAN); j3 <= Math.min(hiD[1], s3 + WIN_SPAN); j3 += 5)
+          for (let j4 = Math.max(loD[2], s4 - WIN_SPAN); j4 <= Math.min(hiD[2], s4 + WIN_SPAN); j4 += 5) {
+            if (j2 > 0 || j3 > 0) continue; // J2/J3 上限 0
+            const e = withJ5(j2, j3, j4);
+            if (e < wErr) { wErr = e; wBest = [j2, j3, j4]; }
+          }
+      if (wBest) {
+        for (const [span, step] of [[8, 4], [4, 2]] as const) {
+          const b2 = wBest[0], b3 = wBest[1], b4 = wBest[2];
+          for (let j2 = b2 - span; j2 <= b2 + span; j2 += step)
+            for (let j3 = Math.max(loD[1], b3 - span); j3 <= Math.min(hiD[1], b3 + span); j3 += step)
+              for (let j4 = Math.max(loD[2], b4 - span); j4 <= Math.min(hiD[2], b4 + span); j4 += step) {
+                if (j2 > 0 || j3 > 0) continue;
+                const e = withJ5(j2, j3, j4);
+                // 原地写入（不再新配数组）：避免 wBest 的窄化类型与 j2 推断成环（TS7022）
+                if (e < wErr) { wErr = e; wBest[0] = j2; wBest[1] = j3; wBest[2] = j4; }
+              }
+        }
+        for (let i = 0; i < N; i++) data.qpos[i] = 0;
+        data.qpos[0] = yaw;
+        data.qpos[1] = wBest[0] * D; data.qpos[2] = wBest[1] * D; data.qpos[3] = wBest[2] * D;
+        data.qpos[4] = j5Best;
+        forward();
+        const c = tcp();
+        const pErr = Math.hypot(target[0] - c[0], target[1] - c[1], target[2] - c[2]);
+        if (pErr < WIN_GATE_P && norm3(cross3(endAxis(), des)) < WIN_GATE_A) {
+          return new Float64Array([
+            clip(yaw, lo[0], hi[0]), wBest[0] * D, wBest[1] * D, wBest[2] * D, j5Best, 0,
+          ]);
+        }
+      }
+    }
     let best = [-90, -60, 15];
     let bestErr = withJ5(best[0], best[1], best[2]);
     // 一级：肘上工作区宽窗

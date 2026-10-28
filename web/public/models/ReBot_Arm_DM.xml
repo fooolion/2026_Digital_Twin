@@ -235,9 +235,9 @@
        body z=0.010 仍使底面贴桌面，几何中心在 m_y 轴上 → 44cm 自动保持。
        纯视觉（contype=0）：凸包碰撞比真件胖，会卡住演示路径——阶段二做"拆一件"时
        再给可拆件建精准碰撞。
-       演示样件（demo_cube，40mm 可抓样件）：出生 (0.30,-0.18)（电池 y 边界 -0.125 外
-       7.5cm，默认机位前排可见）；投放点由 demo.ts 定为出生 +(0,-0.26)=(0.30,-0.44)，
-       搬运走廊全程与电池保持安全距离，投放环正对观众（视角前方）。
+       演示样件（demo_cube，40mm 可抓样件）：出生 (0.30,0.30)（+y 侧，臂前方偏右）；
+       投放点由 demo.ts 定为出生 +(-0.3,0.1)=(0,0.40)，搬运走廊与投放环均远离电池模组
+       （电池 x∈[0.33,0.55]），且两点距底座 0.42/0.40m 在臂可达半径内。
        demo.ts 按 body 名读取出生点，demo 逻辑零改动。 -->
     <geom name="web_table" type="plane" size="0.6 0.6 0.05" rgba="0.16 0.20 0.27 1" contype="1024" conaffinity="1024"/>
     <body name="battery_module" pos="0.44 0 0.010" quat="0 0 0.70711 0.70711">
@@ -253,7 +253,7 @@
         <geom name="battery_busbar_geom" type="mesh" mesh="battery_busbar" rgba="0.72 0.45 0.20 1" contype="0" conaffinity="0"/>
       </body>
     </body>
-    <body name="demo_cube" pos="0.30 -0.18 0.021">
+    <body name="demo_cube" pos="0.30 0.30 0.021">
       <freejoint/>
       <geom name="demo_cube_geom" type="box" size="0.02 0.02 0.02" rgba="0.16 0.84 0.55 1" contype="1024" conaffinity="1024" friction="1 0.005 0.0001"/>
     </body>

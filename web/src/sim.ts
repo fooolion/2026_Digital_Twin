@@ -103,7 +103,7 @@ async function main(): Promise<void> {
 
   const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.01, 20);
   camera.up.set(0, 0, 1);
-  camera.position.set(1.1, -1.3, 0.75);
+  camera.position.set(0, 1.7, 0.75); // 自 +y 朝向机械臂（定稿）：臂、电池、样件与投放环全景入画
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.set(0, 0, 0.35);

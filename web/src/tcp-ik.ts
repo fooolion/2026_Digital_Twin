@@ -24,9 +24,10 @@ export interface TcpIk {
   /** 拖拽/回放模式：朝目标走一步（dt=帧时长 s）。返回当前 TCP 误差模长 (m)。 */
   servo(target: readonly [number, number, number], dt: number): number;
   /** 离线求解：从 seed 出发迭代到收敛（≤SOLVE_MAX_ITER=150 轮），返回解的角度副本（不碰物理态）。
-   *  axisDesired（可选）：末端轴（end_link x̂ = 夹爪指向）的世界方向目标。 */
+   *  axisDesired（可选）：末端轴（end_link x̂ = 夹爪指向）的世界方向目标。
+   *  j6（可选）：期望 J6 角（rad，对齐样件平行面）——轴约束解先置该值再锁 J6 拉回位置。 */
   solveTo(seed: Float64Array, target: readonly [number, number, number],
-          axisDesired?: readonly [number, number, number]): Float64Array; // 恒有解（网格/迭代路径不返回 null）
+          axisDesired?: readonly [number, number, number], j6?: number): Float64Array; // 恒有解（网格/迭代路径不返回 null）
   /** 把 IK 解重置为物理当前关节角（抓球/死区回位时调用——否则 IK 解与物理姿态
    *  脱节，回位瞬间 CTC 目标角跳变，臂会"弹"一下）。 */
   resetToPhysics(): void;
@@ -192,13 +193,21 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
     seed: Float64Array,
     target: readonly [number, number, number],
     axisDesired?: readonly [number, number, number],
+    j6?: number,
   ): Float64Array {
     // 影子纪律与 servo 一致：进出恢复物理态——中途 putQ 的候选解（含被拒的）
     // 绝不能留在 data.qpos 里，否则演示建计划一结束物理臂被瞬移到垃圾姿态
     const saved = new Float64Array(data.qpos.length);
     saved.set(data.qpos);
     try {
-      return axisDesired ? solveByGrid(target, axisDesired) : solve3D(seed, target);
+      const q = axisDesired ? solveByGrid(target, axisDesired) : solve3D(seed, target);
+      // j6 期望（对齐样件平行面）：直搜解 J6 恒 0——先置期望值，再锁 J6 用其余关节
+      // 拉回位置（J6 滚转会带 tcp 漂移 ~11.5mm，由 J1..J4 补偿；轴方向大体保持竖直）
+      if (j6 !== undefined) {
+        q[5] = clip(j6, lo[5], hi[5]);
+        return solve3D(q, target, j6);
+      }
+      return q;
     } finally {
       for (let i = 0; i < saved.length; i++) data.qpos[i] = saved[i];
       forward();
@@ -207,8 +216,10 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
 
   const AXIS_W = 0.5;    // 轴向误差权重（rad ↔ m 折算）
 
-  /** 纯位置 3D DLS：链式种子迭代到收敛（无姿态诉求的过渡航点，历史验证收敛） */
-  function solve3D(seed: Float64Array, target: readonly [number, number, number]): Float64Array {
+  /** 纯位置 3D DLS：链式种子迭代到收敛（无姿态诉求的过渡航点，历史验证收敛）。
+   *  j6Lock：锁定 J6（rad）只解其余关节——配合 solveTo 的 J6 期望做位置拉回。 */
+  function solve3D(seed: Float64Array, target: readonly [number, number, number],
+                   j6Lock?: number): Float64Array {
     const q = new Float64Array(N);
     for (let i = 0; i < N; i++) q[i] = clip(seed[i], lo[i], hi[i]);
     putQ(q);
@@ -218,6 +229,7 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
     const stepFrac = 0.35;       // 每轮走剩余误差的 35%（离线求解无帧率约束）
     const maxStep = 0.06;        // 每轮关节步幅上限（rad）
     for (let iter = 0; iter < SOLVE_MAX_ITER && err >= REACH_ERROR; iter++) {
+      if (j6Lock !== undefined) q[5] = clip(j6Lock, lo[5], hi[5]);
       putQ(q);
       const J = jacobian();
       c = tcp();

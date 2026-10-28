@@ -18,6 +18,8 @@ const GRASP_SETTLE_ERR = 0.004; // 抓取专用更严门槛：样件与指垫无
                              // 10mm 会在夹爪还悬空时就带走样件（隔空抓取感）——收紧到 4mm
                              // 且要求竖直分量同样 <4mm（指垫真正跨住样件中段才算贴上）
 const GRASP_AXIS = [0, 0, -1] as const; // 夹爪轴（end_link x̂）目标方向：竖直朝下，全程顶抓姿态
+const GRASP_J6 = -Math.PI / 4; // 抓取段 J6 期望：直搜解 J6 恒 0 → 指开合方向=yaw+90°（对立方斜 45°），
+                               // J6=-45° 把开合方向转回世界 y，夹住样件的一对平行面
 const JOINT_SPEED = 0.9;      // 段插值关节角速度上限（rad/s），柔和
 const REC_INTERVAL = 90;      // 录制采样间隔（ms）
 const REC_MAX = 1800;         // 录制点数上限（90ms×1800≈2.7 分钟）：防忘停录制导致 path/jPath
@@ -122,38 +124,41 @@ export function createDemo(deps: DemoDeps) {
   }
 
   /** 离线解一个航点：接触关键航点带竖直下压轴约束（网格直搜），过渡航点纯位置（链式播种） */
-  function solveWaypoint(seed: Float64Array, p: readonly [number, number, number], axis?: boolean): Float64Array {
-    return ik.solveTo(seed, p, axis ? GRASP_AXIS : undefined);
+  function solveWaypoint(seed: Float64Array, p: readonly [number, number, number],
+                         axis?: boolean, j6?: number): Float64Array {
+    return ik.solveTo(seed, p, axis ? GRASP_AXIS : undefined, j6);
   }
 
   /** 生成整段演示计划（8 航点 → 8 段关节插值） */
   function buildPlan(): void {
     const c = homePos, d = dropPos;
     const W: {
-      p: [number, number, number]; label: string; axis?: boolean;
+      p: [number, number, number]; label: string; axis?: boolean; j6?: number;
       grasp?: boolean; release?: boolean; grip?: number; settle?: number;
     }[] = [
       { p: [c.x * 0.7, c.y, 0.38], label: '展开', grip: deps.gripOpenRad }, // 先张开夹爪再接近
-      { p: [c.x, c.y, c.z + HOVER_DZ], label: '接近样件', axis: true },
-      { p: [c.x, c.y, c.z + GRASP_DZ], label: '下探抓取', axis: true, grasp: true, grip: GRIP_CUBE_RAD, settle: 2.0 },
-      { p: [c.x, c.y, c.z + HOVER_DZ], label: '抬升' },
-      { p: [c.x, c.y, SAFE_Z], label: '升起' },
-      { p: [d.x, d.y, SAFE_Z], label: '搬运' },
-      { p: [d.x, d.y, DROP_TCP_Z], label: '下降投放', axis: true, release: true, grip: deps.gripOpenRad, settle: 1.5 },
+      { p: [c.x, c.y, c.z + HOVER_DZ], label: '接近样件', axis: true, j6: GRASP_J6 },
+      { p: [c.x, c.y, c.z + GRASP_DZ], label: '下探抓取', axis: true, j6: GRASP_J6, grasp: true, grip: GRIP_CUBE_RAD, settle: 2.0 },
+      { p: [c.x, c.y, c.z + HOVER_DZ], label: '抬升', axis: true, j6: GRASP_J6 },
+      { p: [c.x, c.y, SAFE_Z], label: '升起', axis: true, j6: GRASP_J6 },
+      { p: [d.x, d.y, SAFE_Z], label: '搬运', axis: true, j6: GRASP_J6 },
+      { p: [d.x, d.y, DROP_TCP_Z], label: '下降投放', axis: true, j6: GRASP_J6, release: true, grip: deps.gripOpenRad, settle: 1.5 },
       { p: [d.x + 0.05, d.y + 0.05, SAFE_Z], label: '回位', grip: 0 }, // 回位收拢夹爪（空手移动的标准姿态，演示结束保持闭合）
     ];
     segs = [];
     let seed: Float64Array<ArrayBufferLike> = new Float64Array(ik.angles); // 从当前 IK 解链式播种
     for (const wp of W) {
-      const q = solveWaypoint(seed, wp.p, wp.axis);
+      const q = solveWaypoint(seed, wp.p, wp.axis, wp.j6);
       let maxD = 0;
       for (let i = 0; i < 6; i++) maxD = Math.max(maxD, Math.abs(q[i] - seed[i]));
       const dur = Math.min(6, Math.max(0.9, maxD / JOINT_SPEED + 0.25));
       segs.push({ q, p: wp.p, dur, hold: 0, applied: false, grasp: wp.grasp, release: wp.release, gripCmd: wp.grip, settle: wp.settle, label: wp.label });
       seed = q;
     }
-    // 抓取/投放在位事件带 settle 等待（等物理臂收敛到航点 10mm 内），hold 留足闭合动作可见时间
-    segs[2].hold = 1.2;
+    // 抓取/投放在位事件带 settle 等待（等物理臂收敛到航点 10mm 内），hold 留足动作时间：
+    // 抓取 hold 2.5s——齿轮电机力矩饱和（±0.6N·m）从全开闭到夹住 40mm 立方需 ~2s，
+    // 1.2s 没闭完就抬升会"张着爪拎样件"；投放 hold 0.8s 保持张开可见
+    segs[2].hold = 2.5;
     segs[6].hold = 0.8;
   }
 

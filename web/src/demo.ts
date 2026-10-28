@@ -205,24 +205,24 @@ export function createDemo(deps: DemoDeps) {
     const P = BUSBAR_PLACE_XY;
     const W: {
       p: [number, number, number]; label: string; axis?: boolean;
-      axisVec?: readonly [number, number, number];
+      axisVec?: readonly [number, number, number]; j6?: number;
       grasp?: 'cube' | 'busbar'; release?: 'cube' | 'busbar'; grip?: number; settle?: number;
     }[] = [
-      { p: [g.x - 0.10, g.y, SAFE_Z], label: '展开', axisVec: BUSBAR_AXIS_IN, grip: deps.gripOpenRad },
-      { p: [g.x - 0.08, g.y, g.z], label: '接近母线', axisVec: BUSBAR_AXIS_IN },
-      { p: [g.x, g.y, g.z], label: '侧向夹持', axisVec: BUSBAR_AXIS_IN, grasp: 'busbar', grip: GRIP_BUSBAR_RAD, settle: 2.0 },
-      { p: [g.x, g.y, g.z + 0.02], label: '垂直拔出·一', axisVec: BUSBAR_AXIS_IN },
-      { p: [g.x, g.y, g.z + 0.04], label: '垂直拔出·二', axisVec: BUSBAR_AXIS_IN },
-      { p: [g.x, g.y, g.z + BUSBAR_LIFT], label: '拔出', axisVec: BUSBAR_AXIS_IN },
-      { p: [g.x, g.y, SAFE_Z], label: '升起', axisVec: BUSBAR_AXIS_IN },
-      { p: [P.x, P.y, SAFE_Z], label: '搬运', axisVec: BUSBAR_AXIS_OUT },
-      { p: [P.x, P.y, BUSBAR_PLACE_TCP_Z], label: '下降放置', axisVec: BUSBAR_AXIS_OUT, release: 'busbar', grip: deps.gripOpenRad, settle: 1.5 },
+      { p: [g.x - 0.10, g.y, SAFE_Z], label: '展开', axisVec: BUSBAR_AXIS_IN, j6: Math.PI / 2, grip: deps.gripOpenRad },
+      { p: [g.x - 0.08, g.y, g.z], label: '接近母线', axisVec: BUSBAR_AXIS_IN, j6: Math.PI / 2 },
+      { p: [g.x, g.y, g.z], label: '侧向夹持', axisVec: BUSBAR_AXIS_IN, j6: Math.PI / 2, grasp: 'busbar', grip: GRIP_BUSBAR_RAD, settle: 2.0 },
+      { p: [g.x, g.y, g.z + 0.02], label: '垂直拔出·一', axisVec: BUSBAR_AXIS_IN, j6: Math.PI / 2 },
+      { p: [g.x, g.y, g.z + 0.04], label: '垂直拔出·二', axisVec: BUSBAR_AXIS_IN, j6: Math.PI / 2 },
+      { p: [g.x, g.y, g.z + BUSBAR_LIFT], label: '拔出', axisVec: BUSBAR_AXIS_IN, j6: Math.PI / 2 },
+      { p: [g.x, g.y, SAFE_Z], label: '升起', axisVec: BUSBAR_AXIS_IN, j6: Math.PI / 2 },
+      { p: [P.x, P.y, SAFE_Z], label: '搬运', axisVec: BUSBAR_AXIS_OUT, j6: Math.PI / 2 },
+      { p: [P.x, P.y, BUSBAR_PLACE_TCP_Z], label: '下降放置', axisVec: BUSBAR_AXIS_OUT, j6: Math.PI / 2, release: 'busbar', grip: deps.gripOpenRad, settle: 1.5 },
       { p: [P.x + 0.05, P.y + 0.05, SAFE_Z], label: '回位', grip: 0 },
     ];
     segs = [];
     let seed: Float64Array<ArrayBufferLike> = new Float64Array(ik.angles);
     for (const wp of W) {
-      const q = solveWaypoint(seed, wp.p, undefined, undefined, wp.axisVec);
+      const q = solveWaypoint(seed, wp.p, undefined, wp.j6, wp.axisVec);
       let maxD = 0;
       for (let i = 0; i < 6; i++) maxD = Math.max(maxD, Math.abs(q[i] - seed[i]));
       const dur = Math.min(6, Math.max(0.9, maxD / JOINT_SPEED + 0.25));
@@ -233,13 +233,30 @@ export function createDemo(deps: DemoDeps) {
     segs[8].hold = 0.8;
   }
 
-  /** 抓取到位：捕获样件相对夹爪的位姿，进入运动学跟随（目标 = cube 或 busbar） */
+  /** 抓取到位：捕获样件相对夹爪的位姿，进入运动学跟随（目标 = cube 或 busbar）。
+   *  busbar 带软启动混合：触发瞬间母线从钉住位姿平滑过渡到跟随位姿（0.4s），
+   *  消除"夹持瞬间跳动"——触发时物理 TCP 若未完全收敛，瞬移会很明显。 */
   let graspTarget: 'cube' | 'busbar' = 'cube';
   let graspedQadr = cubeQadr;    // 跟随目标的 qpos 地址（beginGrasp 时按目标设置）
   let graspedDofadr = cubeDofadr;
-  function beginGrasp(target: 'cube' | 'busbar'): void {
+  const BUS_BLEND = 0.4;         // 混合时长（s）
+  let busBlendT = -1;            // 混合起始时刻（ms；<0 = 非混合态）
+  const busBlendPos = new THREE.Vector3();
+  const busBlendQuat = new THREE.Quaternion();
+  function beginGrasp(target: 'cube' | 'busbar', now: number): void {
     if (target === 'cube' && !hasCube) return;
     if (target === 'busbar' && !hasBusbar) return;
+    graspTarget = target;
+    graspedQadr = target === 'cube' ? cubeQadr : busQadr;
+    graspedDofadr = target === 'cube' ? cubeDofadr : busDofadr;
+    if (target === 'busbar') {
+      busBlendPos.set(data.qpos[busQadr], data.qpos[busQadr + 1], data.qpos[busQadr + 2]);
+      busBlendQuat.set(
+        data.qpos[busQadr + 4], data.qpos[busQadr + 5],
+        data.qpos[busQadr + 6], data.qpos[busQadr + 3],
+      );
+      busBlendT = now;
+    }
     graspTarget = target;
     graspedQadr = target === 'cube' ? cubeQadr : busQadr;
     graspedDofadr = target === 'cube' ? cubeDofadr : busDofadr;
@@ -309,9 +326,9 @@ export function createDemo(deps: DemoDeps) {
   }
 
   /** 段到位事件（抓取/释放/夹爪命令），物理收敛或超时兜底时调用 */
-  function applySeg(seg: Seg): void {
+  function applySeg(seg: Seg, now: number): void {
     seg.applied = true;
-    if (seg.grasp) beginGrasp(seg.grasp);
+    if (seg.grasp) beginGrasp(seg.grasp, now);
     if (seg.release) releaseGrasp(seg.release);
     if (seg.gripCmd !== undefined) deps.setGripTarget(seg.gripCmd);
   }
@@ -365,11 +382,11 @@ export function createDemo(deps: DemoDeps) {
       const zErr = Math.abs(data.site_xpos[3 * ik.siteId + 2] - seg.p[2]);
       if (!seg.applied && segT >= seg.dur * 0.5 &&
           ((tcpErr(seg.p) < gate && zErr < gate) || segT >= seg.dur + (seg.settle ?? 0))) {
-        applySeg(seg);
+        applySeg(seg, now);
       }
       const total = seg.dur + seg.hold;
       if (segT < total) break;
-      if (!seg.applied) applySeg(seg); // 兜底：settle 超时也触发（hold 末尾）
+      if (!seg.applied) applySeg(seg, now); // 兜底：settle 超时也触发（hold 末尾）
       fromQ.set(seg.q); // 下一段起点 = 本段终点
       segT -= total;
       segIdx++;
@@ -386,16 +403,29 @@ export function createDemo(deps: DemoDeps) {
       const e3 = 3 * endLinkId, q4 = 4 * endLinkId;
       _q1.set(data.xquat[q4 + 1], data.xquat[q4 + 2], data.xquat[q4 + 3], data.xquat[q4]); // eQ
       _v1.copy(graspRelPos).applyQuaternion(_q1);
-      data.qpos[graspedQadr] = data.xpos[e3] + _v1.x;
-      data.qpos[graspedQadr + 1] = data.xpos[e3 + 1] + _v1.y;
-      let z = data.xpos[e3 + 2] + _v1.z;
+      const fx = data.xpos[e3] + _v1.x, fy = data.xpos[e3 + 1] + _v1.y;
+      let fz = data.xpos[e3 + 2] + _v1.z;
       if (graspTarget === 'cube') {
         // z 不低于出生位（桌面静止高度）：夹爪收敛末段仍略高于航点时，跟随会把样件
         // 压向桌面（无指-件碰撞，物理不挡）——钳制住，样件只贴桌面滑，不穿桌
-        z = Math.max(z, homePos.z - 0.0005);
+        fz = Math.max(fz, homePos.z - 0.0005);
       }
-      data.qpos[graspedQadr + 2] = z;
-      _q1.multiply(graspRelQuat); // eQ·rel（_q1 后续不再以 eQ 身份使用）
+      _q1.multiply(graspRelQuat); // 跟随目标四元数（eQ·rel）
+      let px = fx, py = fy, pz = fz;
+      if (graspTarget === 'busbar' && busBlendT >= 0) {
+        // 软启动混合：从抓取瞬间的钉住位姿平滑过渡到跟随位姿（消除触发瞬间的跳动）
+        const f = Math.min(1, (now - busBlendT) / (BUS_BLEND * 1000));
+        const s = f * f * (3 - 2 * f);
+        px = busBlendPos.x + (fx - busBlendPos.x) * s;
+        py = busBlendPos.y + (fy - busBlendPos.y) * s;
+        pz = busBlendPos.z + (fz - busBlendPos.z) * s;
+        _q2.copy(busBlendQuat).slerp(_q1, s);
+        _q1.copy(_q2);
+        if (f >= 1) busBlendT = -1; // 混合完成 → 纯跟随
+      }
+      data.qpos[graspedQadr] = px;
+      data.qpos[graspedQadr + 1] = py;
+      data.qpos[graspedQadr + 2] = pz;
       data.qpos[graspedQadr + 3] = _q1.w; data.qpos[graspedQadr + 4] = _q1.x;
       data.qpos[graspedQadr + 5] = _q1.y; data.qpos[graspedQadr + 6] = _q1.z;
       for (let i = 0; i < 6; i++) data.qvel[graspedDofadr + i] = 0;

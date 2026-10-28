@@ -376,8 +376,10 @@ async function main(): Promise<void> {
   });
   const busDisc = new THREE.Mesh(new THREE.CircleGeometry(0.10, 48), busMat(0.10));
   const busRingEdge = new THREE.Mesh(new THREE.RingGeometry(0.093, 0.100, 48), busMat(0.9));
+  const busDot = new THREE.Mesh(new THREE.CircleGeometry(0.008, 20), busMat(0.95));
   busRingEdge.position.z = 0.0008;
-  busRing.add(busDisc, busRingEdge);
+  busDot.position.z = 0.0016;
+  busRing.add(busDisc, busRingEdge, busDot);
   scene.add(busRing);
   // 录制路径可视化（橙色细线，随采样实时生长；预分配属性避免每帧重建）
   const PATH_MAX = 4000;

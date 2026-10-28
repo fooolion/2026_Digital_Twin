@@ -8,7 +8,11 @@
 import * as THREE from 'three';
 
 const BASE = `${import.meta.env.BASE_URL}models/meshes/battery`;
+// busbar（新母线）：建模原点与电池不对应，已按几何测量求出相对位姿（推导见 MJCF 注释）：
+// 套 upper-1/2 的 D10 极柱 (85.14,·,±49)（孔距恰 98），倒扣绕 z 180°、t=(85.14, 185, 44) mm
 const FILES = ['battery-lower', 'battery-upper-1', 'battery-upper-2', 'battery-upper-3'] as const;
+const BUSBAR_FILE = 'busbar';
+const BUSBAR_POS = new THREE.Vector3(0.08514, 0.185, 0.044);
 
 /** 与 sim.ts 同策略：优先 .gz + DecompressionStream，失败回退原文件 */
 async function fetchBytes(url: string): Promise<ArrayBuffer> {
@@ -49,6 +53,20 @@ export function loadBattery(): Promise<BatteryModel> {
     ];
     const group = new THREE.Group();
     geos.forEach((geo, i) => group.add(new THREE.Mesh(geo, mats[i])));
+    // 母线（铜排色）：相对电池模型坐标定位（配合推导见 MJCF battery_busbar 注释）
+    try {
+      const busGeo = new STLLoader().parse(await fetchBytes(`${BASE}/${BUSBAR_FILE}.stl`));
+      busGeo.scale(0.001, 0.001, 0.001);
+      const bus = new THREE.Mesh(
+        busGeo,
+        new THREE.MeshStandardMaterial({ color: 0xb87333, roughness: 0.35, metalness: 0.8 }),
+      );
+      bus.position.copy(BUSBAR_POS);
+      bus.quaternion.set(0, 0, 1, 0); // 绕 z 180° 倒扣（与 MJCF battery_busbar quat 一致）
+      group.add(bus);
+    } catch (err) {
+      console.warn('母线加载失败（电池其余部分不受影响）', err);
+    }
     const tris = geos.reduce((s, g) => s + Math.round(g.attributes.position.count / 3), 0);
     return { group, tris };
   })();

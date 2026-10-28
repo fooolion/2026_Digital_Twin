@@ -247,9 +247,9 @@
       <geom name="battery_upper3_geom" type="mesh" mesh="battery_upper3" rgba="0.30 0.34 0.38 1" contype="0" conaffinity="0"/>
       <!-- 新母线（2026-10-28）：建模原点与电池不对应，按几何测量配合——
            母线双孔组（D10.2, 组间中心距98）套 upper-1/2 的 D10 极柱 (85.14,·,±49)
-           （距恰 98.00）。姿态 = 绕电池 z 180°（腿朝上倒扣，孔轴 -y_m→-y_b 对极柱；
-           正放腿会插进顶板穿模），t=(85.14,185,44)：孔板 y∈[170,180] 套柱顶 175。 -->
-      <body name="battery_busbar" pos="0.08514 0.185 0.044" quat="0 0 1 0">
+           （距恰 98.00）。孔轴 -y_m→-y_b 对极柱；
+           t=(85.14+40=125.14,185-98=87,44+5+14=63)：孔板 y∈[170,180] 套柱顶 175。 -->
+      <body name="battery_busbar" pos="0.12514 0.087 0.063" quat="0 0 1 0">
         <geom name="battery_busbar_geom" type="mesh" mesh="battery_busbar" rgba="0.72 0.45 0.20 1" contype="0" conaffinity="0"/>
       </body>
     </body>

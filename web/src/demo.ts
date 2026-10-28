@@ -137,7 +137,7 @@ export function createDemo(deps: DemoDeps) {
       { p: [c.x, c.y, SAFE_Z], label: '升起' },
       { p: [d.x, d.y, SAFE_Z], label: '搬运' },
       { p: [d.x, d.y, DROP_TCP_Z], label: '下降投放', axis: true, release: true, grip: deps.gripOpenRad, settle: 1.5 },
-      { p: [d.x + 0.05, d.y + 0.05, SAFE_Z], label: '回位' },
+      { p: [d.x + 0.05, d.y + 0.05, SAFE_Z], label: '回位', grip: 0 }, // 回位收拢夹爪（空手移动的标准姿态，演示结束保持闭合）
     ];
     segs = [];
     let seed: Float64Array<ArrayBufferLike> = new Float64Array(ik.angles); // 从当前 IK 解链式播种

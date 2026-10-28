@@ -357,6 +357,7 @@ async function main(): Promise<void> {
   scene.add(dropRing);
   // 录制路径可视化（橙色细线，随采样实时生长；预分配属性避免每帧重建）
   const PATH_MAX = 4000;
+  let recDrawn = 0; // 已写入 pathPos 的点数（增量绘制的游标；路径清空时复位）
   const pathPos = new Float32Array(PATH_MAX * 3);
   const pathGeo = new THREE.BufferGeometry();
   pathGeo.setAttribute('position', new THREE.BufferAttribute(pathPos, 3));
@@ -589,18 +590,22 @@ async function main(): Promise<void> {
       panel.syncReadouts(curDeg, travelMm);
       panel.setDemoRunning(demo.running); // 演示自然结束（ret 完成）时复位按钮态
       panel.setRecRunning(demo.recRunning);
-      // 录制路径线可视化（原地更新属性，不重建几何）
+      // 录制路径线可视化（增量写入：只追加新采样点，不清不重写——录制千点时
+      // 全量重写是每帧数千次浮点拷贝的纯浪费）
       const pts = demo.getPath();
       const n = Math.min(pts.length, PATH_MAX);
       pathLine.visible = n >= 2;
       if (n >= 2) {
-        for (let i = 0; i < n; i++) {
+        for (let i = recDrawn; i < n; i++) {
           pathPos[3 * i] = pts[i].x;
           pathPos[3 * i + 1] = pts[i].y;
           pathPos[3 * i + 2] = pts[i].z;
         }
+        recDrawn = n;
         pathGeo.setDrawRange(0, n);
         (pathGeo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+      } else {
+        recDrawn = 0; // 路径已清空（clearPath/startRec）：下轮从头写
       }
       if (demo.running) panel.setPathInfo(`演示 · ${demo.label}`, true);
       else if (demo.recRunning) panel.setPathInfo(`记录中：${demo.recCount} 点`, true);

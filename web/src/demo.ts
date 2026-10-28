@@ -17,6 +17,14 @@ const SETTLE_ERR = 0.010;     // 抓/放到位判定：物理 TCP 距航点 <10m
 const GRASP_AXIS = [0, 0, -1] as const; // 夹爪轴（end_link x̂）目标方向：竖直朝下，全程顶抓姿态
 const JOINT_SPEED = 0.9;      // 段插值关节角速度上限（rad/s），柔和
 const REC_INTERVAL = 90;      // 录制采样间隔（ms）
+const REC_MAX = 1800;         // 录制点数上限（90ms×1800≈2.7 分钟）：防忘停录制导致 path/jPath
+                             // 无限增长；到顶自动停（按钮态由 sim.ts 每帧轮询复位）
+
+// 跟随/捕获段的复用临时量：演示全程每帧执行，new 会以 ~5 对象/帧 的速度制造 GC 垃圾
+const _q1 = new THREE.Quaternion();
+const _q2 = new THREE.Quaternion();
+const _q3 = new THREE.Quaternion();
+const _v1 = new THREE.Vector3();
 
 interface Waypoint { x: number; y: number; z: number; t: number; }
 interface JointWaypoint { q: Float64Array<ArrayBufferLike>; t: number; }
@@ -150,18 +158,19 @@ export function createDemo(deps: DemoDeps) {
   function beginGrasp(): void {
     if (!hasCube) return;
     const q4 = 4 * endLinkId;
-    const eQ = new THREE.Quaternion(data.xquat[q4 + 1], data.xquat[q4 + 2], data.xquat[q4 + 3], data.xquat[q4]);
-    const cQ = new THREE.Quaternion(
-      data.qpos[cubeQadr + 3], data.qpos[cubeQadr + 4],
-      data.qpos[cubeQadr + 5], data.qpos[cubeQadr + 6],
-    );
+    _q1.set(data.xquat[q4 + 1], data.xquat[q4 + 2], data.xquat[q4 + 3], data.xquat[q4]); // eQ
+    _q2.copy(_q1).invert(); // eQ⁻¹（复用临时量，勿动 _q1——后面还要用）
     const e3 = 3 * endLinkId;
     graspRelPos.set(
       data.qpos[cubeQadr] - data.xpos[e3],
       data.qpos[cubeQadr + 1] - data.xpos[e3 + 1],
       data.qpos[cubeQadr + 2] - data.xpos[e3 + 2],
-    ).applyQuaternion(eQ.clone().invert());
-    graspRelQuat.copy(eQ.clone().invert().multiply(cQ));
+    ).applyQuaternion(_q2);
+    _q3.set(
+      data.qpos[cubeQadr + 3], data.qpos[cubeQadr + 4],
+      data.qpos[cubeQadr + 5], data.qpos[cubeQadr + 6],
+    );
+    graspRelQuat.copy(_q2.multiply(_q3)); // eQ⁻¹·cQ
     graspHeld = true;
   }
 
@@ -181,10 +190,11 @@ export function createDemo(deps: DemoDeps) {
 
   /** 主循环每帧调用（dt=秒，now=rAF 时间戳 ms） */
   function tick(dt: number, now: number): void {
-    // —— 路径录制（拖球中采样 ikTarget）——
+    // —— 路径录制（拖球中采样 ikTarget）；到 REC_MAX 自动停（防忘停导致无限增长）——
     if (rec && deps.isDragging() && now - lastSample > REC_INTERVAL) {
       lastSample = now;
       path.push({ x: deps.ikTarget.x, y: deps.ikTarget.y, z: deps.ikTarget.z, t: now - recStart });
+      if (path.length >= REC_MAX) stopRec(); // 按钮态由 sim.ts 每帧轮询 recRunning 自动复位
     }
     // —— 路径回放（关节空间轨迹播放，与演示同一通路；不经逐帧 IK）——
     if (replay && jPath.length >= 2) {
@@ -244,14 +254,14 @@ export function createDemo(deps: DemoDeps) {
     // —— 抓取跟随：样件每帧严格随夹爪（视觉上手指贴着方块）——
     if (graspHeld && hasCube) {
       const e3 = 3 * endLinkId, q4 = 4 * endLinkId;
-      const eQ = new THREE.Quaternion(data.xquat[q4 + 1], data.xquat[q4 + 2], data.xquat[q4 + 3], data.xquat[q4]);
-      const cp = new THREE.Vector3(graspRelPos.x, graspRelPos.y, graspRelPos.z).applyQuaternion(eQ);
-      data.qpos[cubeQadr] = data.xpos[e3] + cp.x;
-      data.qpos[cubeQadr + 1] = data.xpos[e3 + 1] + cp.y;
-      data.qpos[cubeQadr + 2] = data.xpos[e3 + 2] + cp.z;
-      const cq = eQ.clone().multiply(graspRelQuat);
-      data.qpos[cubeQadr + 3] = cq.w; data.qpos[cubeQadr + 4] = cq.x;
-      data.qpos[cubeQadr + 5] = cq.y; data.qpos[cubeQadr + 6] = cq.z;
+      _q1.set(data.xquat[q4 + 1], data.xquat[q4 + 2], data.xquat[q4 + 3], data.xquat[q4]); // eQ
+      _v1.copy(graspRelPos).applyQuaternion(_q1);
+      data.qpos[cubeQadr] = data.xpos[e3] + _v1.x;
+      data.qpos[cubeQadr + 1] = data.xpos[e3 + 1] + _v1.y;
+      data.qpos[cubeQadr + 2] = data.xpos[e3 + 2] + _v1.z;
+      _q1.multiply(graspRelQuat); // eQ·rel（_q1 后续不再以 eQ 身份使用）
+      data.qpos[cubeQadr + 3] = _q1.w; data.qpos[cubeQadr + 4] = _q1.x;
+      data.qpos[cubeQadr + 5] = _q1.y; data.qpos[cubeQadr + 6] = _q1.z;
       for (let i = 0; i < 6; i++) data.qvel[cubeDofadr + i] = 0;
     }
   }

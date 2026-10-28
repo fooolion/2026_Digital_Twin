@@ -98,16 +98,19 @@ export function createDemo(deps: DemoDeps) {
     : null;
   const busPin = hasBusbar ? { pos: busHome!.pos.clone(), quat: busHome!.quat.clone() } : null;
 
-  // 夹取参数（2026-10-28 第三版：顶抓左右侧面——上下平面侧抓经全网格扫描证实机械
-  // 不可达：横梁位于半径 0.30m/高 33mm，腕部仅 J4 一个俯仰自由度，该点位夹爪轴
-  // 极限偏离水平 26°（径向/切向/J1 偏转全扫过），无法水平侧夹。回退顶抓夹 x_m
-  // 两侧面（间距 20mm，世界 x 向），J6=69.4° 对准平行面——实测可用）
-  const BUSBAR_TCP_OFFSET = new THREE.Vector3(-0.030, -0.056, -0.044);
-  const BUSBAR_J6 = 69.4 * Math.PI / 180;
-  const GRIP_BUSBAR_RAD = 1.25;           // 20mm 夹持间距 → 单指 10mm ÷ 齿轮半径 8mm
-  const BUSBAR_LIFT = 0.06;               // 拔出高度（孔板脱离极柱 + 余量）
+  // 夹取参数（2026-10-28 第三版·侧抓，坐标修正后重推导）：
+  //   母线渲染网格 = 文件坐标（未修正 SW 原点）；横梁中心文件坐标 (11,15,63)mm。
+  //   世界 = busHome.pos + Rx90·(file·0.001) → 横梁中心 (0.326, 0, 0.112)，
+  //   截面 20mm(世界 x) × 26mm(世界 z 竖直)、长轴 80mm 沿世界 y。
+  //   侧抓：夹爪轴水平 +x、指闭合线天然竖直（该姿态下 J5=J6=0 即竖直，实测 fingerV=1.0），
+  //   夹住横梁上下平面（26mm 间距 → 单指 13mm ÷ 齿轮半径 8mm = 1.625 rad）。
+  const BUSBAR_TCP_OFFSET = new THREE.Vector3(0.011, 0.015, 0.063); // 文件坐标（与渲染网格同系！）
+  const GRIP_BUSBAR_RAD = 1.625;      // 上下平面间距 26mm → 单指 13mm ÷ 齿轮半径 8mm
+  const BUSBAR_AXIS_IN = [1, 0, 0] as const;   // 夹取/拔出段轴：水平 +x（腕在母线后方）
+  const BUSBAR_AXIS_OUT = [-1, 0, 0] as const; // 搬运/放置段轴：水平 −x（腕在基座侧可达）
+  const BUSBAR_LIFT = 0.06;           // 拔出高度（孔板脱离极柱 + 余量）
   const BUSBAR_PLACE_XY = new THREE.Vector3(-0.30, 0.30, 0); // 黄圈圆心（用户定稿坐标）
-  const BUSBAR_PLACE_TCP_Z = 0.023;       // 母线最低点贴桌时的 TCP 高度（顶抓 dz=-56mm）
+  const BUSBAR_PLACE_TCP_Z = 0.112;   // 放置 TCP 高度 = 抓取高度（母线背棱落地）
 
   // 投放点 = 出生点 + 固定偏移；创建时即初始化（投放环从加载起就在正确位置）
   // 定稿（目视调整）：出生 (0.30,0.30)、投放 = 出生 + (-0.3,0.1) = (0,0.40)——
@@ -191,32 +194,35 @@ export function createDemo(deps: DemoDeps) {
     segs[6].hold = 0.8;
   }
 
-  /** 拆母线演示计划（A11 阶段二）：顶抓夹横梁左右平行面（J6=69.4° 对准世界 x 向）
+  /** 拆母线演示计划（A11 阶段二·侧抓定稿）：夹爪轴水平 +x 滑入、指闭合线竖直
+   *  （该姿态 J5=J6=0 即竖直，实测 fingerV=1.0）夹住横梁上下平面（26mm）
    *  → 垂直拔出（密集中间航点保直线——孔柱 0.2mm 配合，斜拔视觉穿模）
-   *  → 搬运至黄圈 (-0.30,0.30) 放置。夹取点运行时从母线出生位姿推导（XML 位姿联动）。 */
+   *  → 搬运至黄圈 (-0.30,0.30) 放置（放置段轴翻转 −x：腕回基座侧可达）。
+   *  夹取点运行时从母线出生位姿推导（XML 位姿联动）。 */
   function buildBusbarPlan(): void {
     if (!hasBusbar || !busHome) throw new Error('场景中没有 battery_busbar（母线）');
     const g = busHome.pos.clone().add(BUSBAR_TCP_OFFSET.clone().applyQuaternion(busHome.quat));
     const P = BUSBAR_PLACE_XY;
     const W: {
-      p: [number, number, number]; label: string; axis?: boolean; j6?: number;
+      p: [number, number, number]; label: string; axis?: boolean;
+      axisVec?: readonly [number, number, number];
       grasp?: 'cube' | 'busbar'; release?: 'cube' | 'busbar'; grip?: number; settle?: number;
     }[] = [
-      { p: [g.x * 0.6, g.y * 0.7, 0.38], label: '展开', grip: deps.gripOpenRad },
-      { p: [g.x, g.y, g.z + HOVER_DZ], label: '接近母线', axis: true, j6: BUSBAR_J6 },
-      { p: [g.x, g.y, g.z], label: '下探夹持', axis: true, j6: BUSBAR_J6, grasp: 'busbar', grip: GRIP_BUSBAR_RAD, settle: 2.0 },
-      { p: [g.x, g.y, g.z + 0.02], label: '垂直拔出·一', axis: true, j6: BUSBAR_J6 },
-      { p: [g.x, g.y, g.z + 0.04], label: '垂直拔出·二', axis: true, j6: BUSBAR_J6 },
-      { p: [g.x, g.y, g.z + BUSBAR_LIFT], label: '拔出', axis: true, j6: BUSBAR_J6 },
-      { p: [g.x, g.y, SAFE_Z], label: '升起', axis: true, j6: BUSBAR_J6 },
-      { p: [P.x, P.y, SAFE_Z], label: '搬运', axis: true, j6: BUSBAR_J6 },
-      { p: [P.x, P.y, BUSBAR_PLACE_TCP_Z], label: '下降放置', axis: true, j6: BUSBAR_J6, release: 'busbar', grip: deps.gripOpenRad, settle: 1.5 },
+      { p: [g.x - 0.10, g.y, SAFE_Z], label: '展开', axisVec: BUSBAR_AXIS_IN, grip: deps.gripOpenRad },
+      { p: [g.x - 0.08, g.y, g.z], label: '接近母线', axisVec: BUSBAR_AXIS_IN },
+      { p: [g.x, g.y, g.z], label: '侧向夹持', axisVec: BUSBAR_AXIS_IN, grasp: 'busbar', grip: GRIP_BUSBAR_RAD, settle: 2.0 },
+      { p: [g.x, g.y, g.z + 0.02], label: '垂直拔出·一', axisVec: BUSBAR_AXIS_IN },
+      { p: [g.x, g.y, g.z + 0.04], label: '垂直拔出·二', axisVec: BUSBAR_AXIS_IN },
+      { p: [g.x, g.y, g.z + BUSBAR_LIFT], label: '拔出', axisVec: BUSBAR_AXIS_IN },
+      { p: [g.x, g.y, SAFE_Z], label: '升起', axisVec: BUSBAR_AXIS_IN },
+      { p: [P.x, P.y, SAFE_Z], label: '搬运', axisVec: BUSBAR_AXIS_OUT },
+      { p: [P.x, P.y, BUSBAR_PLACE_TCP_Z], label: '下降放置', axisVec: BUSBAR_AXIS_OUT, release: 'busbar', grip: deps.gripOpenRad, settle: 1.5 },
       { p: [P.x + 0.05, P.y + 0.05, SAFE_Z], label: '回位', grip: 0 },
     ];
     segs = [];
     let seed: Float64Array<ArrayBufferLike> = new Float64Array(ik.angles);
     for (const wp of W) {
-      const q = solveWaypoint(seed, wp.p, wp.axis, wp.j6);
+      const q = solveWaypoint(seed, wp.p, undefined, undefined, wp.axisVec);
       let maxD = 0;
       for (let i = 0; i < 6; i++) maxD = Math.max(maxD, Math.abs(q[i] - seed[i]));
       const dur = Math.min(6, Math.max(0.9, maxD / JOINT_SPEED + 0.25));

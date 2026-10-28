@@ -284,7 +284,7 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
     // 一级：肘上工作区宽窗
     for (let j2 = -140; j2 <= -60; j2 += 10)
       for (let j3 = -110; j3 <= -10; j3 += 10)
-        for (let j4 = -60; j4 <= 88; j4 += 10) {
+        for (let j4 = -107; j4 <= 88; j4 += 10) { // J4 全限位覆盖（母线侧抓解需 J4≈-107）
           const e = withJ5(j2, j3, j4);
           if (e < bestErr) { bestErr = e; best = [j2, j3, j4]; }
         }

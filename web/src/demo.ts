@@ -13,7 +13,10 @@ const HOVER_DZ = 0.10;        // 悬停点：tcp 在样件中心上方 100mm
 const SAFE_Z = 0.30;          // 搬运安全高度（tcp 目标）
 const DROP_TCP_Z = 0.029;     // 投放点 tcp 高度（桌面 0 + 样件半高 0.021 + 抓取偏移 0.008）
 const GRIP_CUBE_RAD = 2.5;    // 闭合到 40mm 立方的齿轮角：单指 20mm ÷ 齿轮半径 0.008m（无指-件碰撞，纯视觉贴合）
-const SETTLE_ERR = 0.010;     // 抓/放到位判定：物理 TCP 距航点 <10mm 才触发事件（等 CTC 收敛，防"隔空抓取"）
+const SETTLE_ERR = 0.010;     // 到位判定：物理 TCP 距航点 <10mm（等 CTC 收敛）
+const GRASP_SETTLE_ERR = 0.004; // 抓取专用更严门槛：样件与指垫无物理碰撞（纯运动学跟随），
+                             // 10mm 会在夹爪还悬空时就带走样件（隔空抓取感）——收紧到 4mm
+                             // 且要求竖直分量同样 <4mm（指垫真正跨住样件中段才算贴上）
 const GRASP_AXIS = [0, 0, -1] as const; // 夹爪轴（end_link x̂）目标方向：竖直朝下，全程顶抓姿态
 const JOINT_SPEED = 0.9;      // 段插值关节角速度上限（rad/s），柔和
 const REC_INTERVAL = 90;      // 录制采样间隔（ms）
@@ -230,11 +233,13 @@ export function createDemo(deps: DemoDeps) {
     let guard = 0;
     while (guard++ < 8) {
       const seg = segs[segIdx];
-      // 到位事件：物理 TCP 距航点 <SETTLE_ERR 即触发（段中点起判；settle 上限兜底）。
-      // 插值到位≠物理到位——提前抓会把"追赶落差"固化进跟随偏移（隔空抓取），
-      // 死等插值走完则夹爪在半空闭合，所以以物理收敛为准。
+      // 到位事件：物理 TCP 距航点足够近才触发（段中点起判；settle 上限兜底）。
+      // 抓取段用更严门槛 + 竖直分量判定：样件无指-件碰撞，靠 TCP 几何贴近模拟"接触"，
+      // 门槛松了夹爪还悬空样件就跟着走（隔空抓取），死等插值走完则夹爪在半空闭合。
+      const gate = seg.grasp ? GRASP_SETTLE_ERR : SETTLE_ERR;
+      const zErr = Math.abs(data.site_xpos[3 * ik.siteId + 2] - seg.p[2]);
       if (!seg.applied && segT >= seg.dur * 0.5 &&
-          (tcpErr(seg.p) < SETTLE_ERR || segT >= seg.dur + (seg.settle ?? 0))) {
+          ((tcpErr(seg.p) < gate && zErr < gate) || segT >= seg.dur + (seg.settle ?? 0))) {
         applySeg(seg);
       }
       const total = seg.dur + seg.hold;
@@ -258,7 +263,9 @@ export function createDemo(deps: DemoDeps) {
       _v1.copy(graspRelPos).applyQuaternion(_q1);
       data.qpos[cubeQadr] = data.xpos[e3] + _v1.x;
       data.qpos[cubeQadr + 1] = data.xpos[e3 + 1] + _v1.y;
-      data.qpos[cubeQadr + 2] = data.xpos[e3 + 2] + _v1.z;
+      // z 不低于出生位（桌面静止高度）：夹爪收敛末段仍略高于航点时，跟随会把样件
+      // 压向桌面（无指-件碰撞，物理不挡）——钳制住，样件只贴桌面滑，不穿桌
+      data.qpos[cubeQadr + 2] = Math.max(data.xpos[e3 + 2] + _v1.z, homePos.z - 0.0005);
       _q1.multiply(graspRelQuat); // eQ·rel（_q1 后续不再以 eQ 身份使用）
       data.qpos[cubeQadr + 3] = _q1.w; data.qpos[cubeQadr + 4] = _q1.x;
       data.qpos[cubeQadr + 5] = _q1.y; data.qpos[cubeQadr + 6] = _q1.z;

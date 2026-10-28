@@ -165,10 +165,9 @@ a.active .step-no { background: var(--color-hudglow); color: #04121f; box-shadow
   color: var(--color-mist); text-decoration: none;
   font-size: 14px; font-weight: 600; letter-spacing: .03em;
 }
-.site-nav .brand i {
-  width: 10px; height: 10px; border-radius: 3px;
-  background: linear-gradient(135deg, #59ffb0, #2ee584);
-  box-shadow: 0 0 12px rgba(46, 229, 132, 0.55);
+.site-nav .brand svg.brand-ico {
+  width: 16px; height: 16px; /* 钳夹图形（无背景），随 favicon 同源 */
+  filter: drop-shadow(0 0 6px rgba(46, 229, 132, 0.55));
 }
 .site-nav .links { display: flex; gap: 4px; }
 .site-nav .links a {

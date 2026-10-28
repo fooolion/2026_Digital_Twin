@@ -69,7 +69,9 @@ export function createDemo(deps: DemoDeps) {
   const cubeDofadr: number = hasCube ? model.jnt_dofadr[model.body_jntadr[bodyId]] : 0;
 
   // 投放点 = 出生点 + 固定偏移；创建时即初始化（投放环从加载起就在正确位置）
-  const dropPos = homePos.clone().add(new THREE.Vector3(0.02, -0.24, 0));
+  // 偏移方向朝观众（-y 侧）：搬运轨迹远离电池（电池靠臂一侧 x=0.33，出生点 x=0.30 且
+  // y 全程 ≤ -0.18，与电池角 (0.33,-0.125) 保持 ≥7.5cm 余量），投放环落在默认视角前方
+  const dropPos = homePos.clone().add(new THREE.Vector3(0, -0.26, 0));
 
   let running = false;
   let done = false;

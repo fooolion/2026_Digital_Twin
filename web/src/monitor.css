@@ -80,7 +80,7 @@
 /* 双相机：竖向并排（中列，撑满列高） */
 .mn-cams { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
 .mn-cam { position: relative; padding: 0; flex: 1; min-height: 0; overflow: hidden; }
-.mn-cam img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.mn-cam img, .mn-cam video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #060d1a; }
 
 /* 急停：全页视觉最重的元素（stretch_web_teleop 规范：急停独立成区） */
 .mn-estop-card { display: flex; flex-direction: column; align-items: center; padding: 12px 14px 10px;

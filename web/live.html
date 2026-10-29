@@ -33,13 +33,15 @@
       <section class="mn-mid">
         <div class="hud-panel mn-cam" id="cam-a-box">
           <div class="mn-video-tag sm"><span class="lamp lamp-warn"></span>相机 A · 工位全景</div>
-          <img id="cam-a" alt="相机 A 画面占位" />
-          <div class="mn-video-ph sm"><b>画面待接入</b><span>MJPEG · P5</span></div>
+          <video id="cam-a-video" playsinline muted loop preload="metadata"></video>
+          <img id="cam-a" alt="相机 A 画面" hidden />
+          <div class="mn-video-ph sm" hidden><b>画面待接入</b><span>MJPEG · P5</span></div>
         </div>
         <div class="hud-panel mn-cam" id="cam-b-box">
           <div class="mn-video-tag sm"><span class="lamp lamp-warn"></span>相机 B · 特写位</div>
-          <img id="cam-b" alt="相机 B 画面占位" />
-          <div class="mn-video-ph sm"><b>画面待接入</b><span>MJPEG · P5</span></div>
+          <video id="cam-b-video" playsinline muted loop preload="metadata"></video>
+          <img id="cam-b" alt="相机 B 画面" hidden />
+          <div class="mn-video-ph sm" hidden><b>画面待接入</b><span>MJPEG · P5</span></div>
         </div>
       </section>
 

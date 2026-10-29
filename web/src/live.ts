@@ -119,15 +119,43 @@ async function setupPico(): Promise<void> {
   picoState('warn', '待接入（预录视频/实时流均未就位）');
 }
 
-/* ===== P5-B：双摄接入 + 隐藏标签页时摘流（MJPEG 不会自动停——后台持续 2-4MB/s 下载+解码） ===== */
+/* ===== P5-B：双摄接入 + 隐藏标签页时摘流（MJPEG 不会自动停——后台持续 2-4MB/s 下载+解码） =====
+ * 三层降级（与 PICO 同款）：伴生服务 MJPEG 实时流 → 本地预录视频（camera_A/B.mp4 循环）→ 占位层。
+ * 预录层为默认态（用户提供的两个相机画面演示），实时流到达后自动升级、断流回落预录。 */
 const camImgs = [
   document.getElementById('cam-a') as HTMLImageElement,
   document.getElementById('cam-b') as HTMLImageElement,
+];
+const camVids = [
+  document.getElementById('cam-a-video') as HTMLVideoElement,
+  document.getElementById('cam-b-video') as HTMLVideoElement,
 ];
 const camPhs = [
   document.getElementById('cam-a-box')!.querySelector('.mn-video-ph') as HTMLElement,
   document.getElementById('cam-b-box')!.querySelector('.mn-video-ph') as HTMLElement,
 ];
+const CAM_LOCAL = [
+  `${import.meta.env.BASE_URL}videos/camera_A.mp4`,
+  `${import.meta.env.BASE_URL}videos/camera_B.mp4`,
+];
+
+/** 演示态：本地预录视频循环播放（实时流未接入时的画面来源） */
+function playCamDemo(slot: 0 | 1): void {
+  const v = camVids[slot];
+  if (!v.src) v.src = CAM_LOCAL[slot];
+  v.style.display = 'block';
+  camImgs[slot].hidden = true;
+  camPhs[slot].hidden = true;
+  v.play().catch(() => { /* 自动播放被拦时静音循环仍可由用户手势恢复 */ });
+}
+
+/** 实时态：MJPEG img 升级（隐藏预录视频与占位层） */
+function showCamLive(slot: 0 | 1): void {
+  camVids[slot].style.display = 'none';
+  camVids[slot].pause();
+  camImgs[slot].hidden = false;
+  camPhs[slot].hidden = true;
+}
 
 let camsAttached = false; // 当前是否挂流（隐藏摘流/恢复挂流的状态位）
 function camStat(lamp: 'ok' | 'warn' | 'off', state: string): void {
@@ -141,24 +169,31 @@ function camStat(lamp: 'ok' | 'warn' | 'off', state: string): void {
 function attachCam(slot: 0 | 1): void {
   const img = camImgs[slot];
   img.src = `${COMPANION_BASE}/cam/${slot}.mjpg?t=${Date.now()}`; // t 参数防旧流缓存
-  img.style.display = 'block';
-  camPhs[slot].style.display = 'none';
-  img.onerror = (): void => { // 服务中途停止 → 回退占位层
+  showCamLive(slot);
+  img.onerror = (): void => { // 服务中途停止 → 回退本地预录（占位层仅预录也缺失时兜底）
     img.style.display = 'none';
     img.removeAttribute('src');
-    camPhs[slot].style.display = 'flex';
+    playCamDemo(slot);
   };
 }
 
 // 页面隐藏：摘掉 MJPEG src（img 流不会自动暂停，后台持续下载+解码 CPU）；回来再挂
 document.addEventListener('visibilitychange', () => {
-  if (!camsAttached) return;
-  if (document.hidden) {
-    camImgs.forEach((img) => img.removeAttribute('src'));
-  } else {
-    attachCam(0); attachCam(1);
+  if (camsAttached) {
+    if (document.hidden) {
+      camImgs.forEach((img) => img.removeAttribute('src'));
+    } else {
+      attachCam(0); attachCam(1);
+    }
+    return;
   }
+  // 演示态：预录视频随页面可见性暂停/恢复（省后台解码）
+  camVids.forEach((v) => (document.hidden ? v.pause() : v.play().catch(() => {})));
 });
+
+playCamDemo(0);
+playCamDemo(1);
+camStat('warn', '预录演示 · 实时流 P5 接入后自动升级');
 
 async function setupCams(): Promise<void> {
   attachCam(0);

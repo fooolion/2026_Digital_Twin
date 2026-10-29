@@ -100,31 +100,33 @@ export function createDemo(deps: DemoDeps) {
     : null;
   const busPin = hasBusbar ? { pos: busHome!.pos.clone(), quat: busHome!.quat.clone() } : null;
 
-  // 夹取参数（2026-10-29 第五版·同分支侧抓 + 竖直向下释放）：
-  //   母线渲染网格 = 文件坐标（未修正 SW 原点）；横梁中心文件坐标 (11,15,63)mm。
-  //   世界 = busHome.pos + Rx90·(file·0.001) → 横梁中心 (0.326, 0, 0.112)，
-  //   截面 20mm(世界 x) × 26mm(世界 z 竖直)、长轴 80mm 沿世界 y。
-  //   侧抓：夹爪轴水平径向滑入，J6=90° 纯滚转使指闭合线竖直，夹住横梁上下平面
-  //   （26mm 间距 → 单指 13mm ÷ 齿轮半径 8mm = 1.625 rad）。
-  //   夹取→搬运锁 B 分支（腕反折族）；放置前在黄圈上空「翻转调姿」：轴转竖直向下、
-  //   肘抬高换 A 分支（水平径向 B 族在该半径 tcp 上限 ~0.19，竖直向下只有 A 族可达），
-  //   指闭合线转水平（J6=−45°：yaw135+90−45≡0° 对准世界 x），张开指垫包围后再松爪——
-  //   母线从水平张开的指垫之间竖直下落（与绿块投放同款），不再竖直穿过闭合的指。
-  const BUSBAR_TCP_OFFSET = new THREE.Vector3(0.011, 0.015, 0.063); // 文件坐标（与渲染网格同系！）
+  // 夹取参数（2026-10-29 第六版·分阶段渐进接近 + 竖直向下释放）：
+  //   母线真实几何（busbar.stl 实测）：49×99×126mm 立式拱桥（两根平行横轨+端部立柱），
+  //   抓取的横梁 = 底部 26mm 高的一条；长轴 126mm 沿世界 y、梁远面 world x≈0.336、
+  //   拱桥前壁 x≈0.334。
+  //   夹取点 tcp 比梁中心提前 10mm（指尖自 tcp 前伸 15mm——XML 指垫盒 model x∈[−30,0]），
+  //   指尖止于 0.331，距拱壁 3mm——不提前则闭合姿态本身就穿模（与开度无关）。
+  //   渐进接近（用户路径）：启动即开爪 20mm/侧 → 展开点(J6=90° 水平径向姿态) →
+  //   同 x 垂直下降到梁高（指尖全程在梁区外侧，斜线下降会扫梁）→ 开爪 30mm/侧 →
+  //   水平滑入 40mm（横梁进入指区，间隙 60mm 不穿模）→ 闭合夹住上下平面 →
+  //   垂直拔出 → 搬运 → 翻转调姿（轴竖直向下/肘抬高换分支）→ 下降张开包围 → 松爪落体。
+  //   解算顺序 ≠ 播放顺序；持物段 branchLock 锁分支，调姿点全局重解。
+  const BUSBAR_TCP_OFFSET = new THREE.Vector3(0.001, 0.015, 0.063); // 文件坐标；x 比梁中心提前 10mm 防指尖穿拱壁
   const GRIP_BUSBAR_RAD = 1.625;      // 上下平面间距 26mm → 单指 13mm ÷ 齿轮半径 8mm
+  const GRIP_BUSBAR_PRE = 2.5;        // 接近段预备开度：行程 20mm/侧（不必全开，边走边开）
+  const GRIP_BUSBAR_SLIDE = 3.75;     // 滑入段开度：行程 30mm/侧（间隙 60mm，横梁进入指区）
   const BUSBAR_LIFT = 0.06;           // 拔出高度（孔板脱离极柱 + 余量）
   const BUSBAR_HIGH_Z = 0.20;         // 升起/搬运高度（B 分支可达上限内；0.30 需换分支）
   const BUSBAR_PLACE_XY = new THREE.Vector3(-0.30, 0.30, 0); // 黄圈圆心（用户定稿坐标）
   const BUSBAR_AXIS_DOWN = [0, 0, -1] as const; // 放置段轴：竖直向下（腕部俯冲、肘抬高）
-  const BUSBAR_PLACE_J6 = -Math.PI / 4; // 放置段 J6：闭合线 = yaw135+90−45 ≡ 0°(mod180) 对准世界 x
+  const BUSBAR_PLACE_J6 = -Math.PI / 4; // 放置段 J6：闭合线对准世界 x（实测标定，非手推公式）
   const BUSBAR_ADJUST_Z = 0.15;       // 调姿高度：轴竖直向下在该半径(0.42m)的 tcp 可达上限 ~0.19
-  const BUSBAR_PLACE_TCP_Z = 0.04;    // 释放 tcp 高度（梁底 ~3cm 落差，指尖不触地）
+  const BUSBAR_PLACE_TCP_Z = 0.04;    // 释放 tcp 高度（拱底 ~2mm 即将触地，短落体）
   const GRAV = 9.81;                  // 落体动画重力（m/s²）
-  // 横梁半尺寸·件系（渲染网格=件坐标）：20/26/80mm。落地静止高度按释放瞬间实际姿态
-  // 实时算（见 releaseGrasp）——调姿后 20mm 边转竖直，与旧的固定 26mm 半高不同
-  const BUS_PART_HALF = [0.010, 0.013, 0.040] as const;
-  // 体原点相对梁中心·件系 = −BUSBAR_TCP_OFFSET（梁中心对准 tcp ⇒ 原点在其反向延伸处）
-  const BUS_ORIG_FROM_CENTER = [-0.011, -0.015, -0.063] as const;
+  // 母线真实包围盒·件系（busbar.stl 实测：49×99×126mm）——落地静止高度按释放瞬间
+  // 姿态实时算（见 releaseGrasp）：竖直半高模型曾按 20×26×80 小梁假设，实测下陷 ~28mm
+  const BUS_MIN = [0, 0, 0] as const;
+  const BUS_MAX = [0.049, 0.099, 0.126] as const;
   /** 航点径向轴：水平外向单位向量（随航点 yaw 同转）。固定世界方向轴（如 [1,0,0]）在
    *  yaw≠0 的航点不可满足——J5=0 时夹爪轴被锁在目标射线的竖直平面内，轴约束失效。 */
   const busRadial = (p: readonly [number, number, number]): [number, number, number] => {
@@ -214,22 +216,24 @@ export function createDemo(deps: DemoDeps) {
     segs[6].hold = 0.8;
   }
 
-  /** 拆母线演示计划（A11 阶段二·第五版）：夹爪在演示开始即全开（展开点再 hold 等待，
-   *  半开滑入会让下指切穿横梁）→ 轴水平径向滑入、J6=90° 指闭合线竖直，夹住横梁上下
-   *  平面（26mm）→ 垂直拔出（密集中间航点保直线——孔柱 0.2mm 配合，斜拔视觉穿模）
-   *  → 升起/搬运 0.20 → 黄圈上空 0.15 翻转调姿（轴转竖直向下、肘抬高换分支、J6=−45°
-   *  闭合线对准世界 x）→ 下降到 0.04 张开指垫包围 → 原位松爪，母线从张开的指间竖直
-   *  落进黄圈。解算顺序 ≠ 播放顺序：夹持点先全局解锚定 B 分支（腕反折族——低处水平
-   *  径向位姿只有该族可达），接近/展开反向解、拔出→搬运正向解全 branchLock 窗口搜索，
-   *  调姿点全局重解（换分支），放置段从调姿解窗口续搜。逐航点独立全局搜索会在肘上/
-   *  肘下两族解之间跳变，关节插值穿过跳变时末端姿态大幅翻滚。夹取点运行时从母线
-   *  出生位姿推导（XML 位姿联动）。 */
+  /** 拆母线演示计划（A11 阶段二·第六版·渐进接近）：启动即开爪 20mm/侧 →
+   *  展开点（水平径向姿态、J6=90°）→ **同 x 垂直下降**到梁高（指尖自 tcp 前伸 15mm，
+   *  全程在梁区外侧——斜线下降会让下指扫过横梁，用户录像实测）→ 开爪 30mm/侧 →
+   *  **水平滑入 25mm**（横梁进入指区间隙 60mm）→ 闭合夹住上下平面 → 垂直拔出
+   *  （密集中间航点保直线——孔柱 0.2mm 配合）→ 升起/搬运 0.20 → 黄圈上空 0.15
+   *  翻转调姿（轴竖直向下、肘抬高换分支、J6=−45° 闭合线对准世界 x）→ 下降 0.04
+   *  张开包围 → 原位松爪落体（真实包围盒算落地高度）。解算顺序 ≠ 播放顺序：
+   *  夹持点先全局解锚定 B 分支（腕反折族），下降/展开反向解、拔出→搬运正向解全
+   *  branchLock 窗口搜索，调姿点全局重解（换分支），放置段窗口续搜。逐航点独立
+   *  全局搜索会在肘上/肘下两族解之间跳变，关节插值穿过跳变时末端姿态大幅翻滚。
+   *  夹取点运行时从母线出生位姿推导（XML 位姿联动）。 */
   function buildBusbarPlan(): void {
     if (!hasBusbar || !busHome) throw new Error('场景中没有 battery_busbar（母线）');
     const g = busHome.pos.clone().add(BUSBAR_TCP_OFFSET.clone().applyQuaternion(busHome.quat));
     const G: [number, number, number] = [g.x, g.y, g.z];
-    const ACC: [number, number, number] = [g.x - 0.02, g.y, g.z];        // 接近：夹持点前 2cm（B 分支后撤极限内）
-    const STG: [number, number, number] = [g.x - 0.03, g.y, g.z + 0.05]; // 展开：接近点上前方（空手自由解）
+    const BWD = 0.032; // 下降列后退量：指尖(前伸15mm)距梁近面标称 17mm（关节插值有前漂，实测留足）
+    const DSC: [number, number, number] = [g.x - BWD, g.y, g.z];        // 下降对姿：梁高（与滑入同 x 同姿态）
+    const STG: [number, number, number] = [g.x - BWD, g.y, g.z + 0.06]; // 展开：下降列顶部
     const P = BUSBAR_PLACE_XY;
     const CARRY: [number, number, number] = [P.x, P.y, BUSBAR_HIGH_Z];
     const ADJ: [number, number, number] = [P.x, P.y, BUSBAR_ADJUST_Z];
@@ -238,8 +242,8 @@ export function createDemo(deps: DemoDeps) {
     const lockSolve = (seed: Float64Array, p: readonly [number, number, number]): Float64Array =>
       ik.solveTo(seed, p, busRadial(p), Math.PI / 2, undefined, LOCK);
     const qGrasp = lockSolve(new Float64Array(ik.angles), G); // 种子=当前姿态：窗口必不达标 → 全局搜索锚定分支
-    const qAcc = lockSolve(qGrasp, ACC);
-    const qStg = ik.solveTo(qAcc, STG); // 展开空手：无轴约束，种子局部解（solve3D 天然同分支）
+    const qDsc = lockSolve(qGrasp, DSC); // 反向解：下降列与滑入同 x 同姿态（纯竖直差动）
+    const qStg = lockSolve(qDsc, STG);
     const lift = (dz: number, seed: Float64Array): Float64Array =>
       lockSolve(seed, [G[0], G[1], G[2] + dz]);
     const qL1 = lift(0.02, qGrasp);
@@ -265,9 +269,9 @@ export function createDemo(deps: DemoDeps) {
       const dur = Math.min(6, Math.max(0.9, maxD / JOINT_SPEED + 0.25));
       segs.push({ q, p, dur, hold: 0, applied: false, label, ...extra });
     };
-    mk(qStg, STG, '展开', { gripCmd: deps.gripOpenRad }); // 先张开夹爪再接近
-    mk(qAcc, ACC, '接近母线');
-    mk(qGrasp, G, '侧向夹持', { grasp: 'busbar', gripCmd: GRIP_BUSBAR_RAD, settle: 2.0 });
+    mk(qStg, STG, '展开', { gripCmd: GRIP_BUSBAR_PRE });       // 接近中开到 20mm/侧（不必全开）
+    mk(qDsc, DSC, '下降对姿', { gripCmd: GRIP_BUSBAR_SLIDE }); // 垂直下降，开到 30mm/侧
+    mk(qGrasp, G, '滑入夹持', { grasp: 'busbar', gripCmd: GRIP_BUSBAR_RAD, settle: 2.0 });
     mk(qL1, [G[0], G[1], G[2] + 0.02], '垂直拔出·一');
     mk(qL2, [G[0], G[1], G[2] + 0.04], '垂直拔出·二');
     mk(qL3, [G[0], G[1], G[2] + BUSBAR_LIFT], '拔出');
@@ -278,7 +282,7 @@ export function createDemo(deps: DemoDeps) {
     mk(new Float64Array(qPlace), PLC, '松爪释放', { release: 'busbar', drop: true });
     mk(qHome, HOME, '回位', { gripCmd: 0 }); // 回位收拢夹爪（空手移动的标准姿态，演示结束保持闭合）
     segs[10].dur = 0.6;  // 原位释放段：插值无位移，缩短到 0.6s（到位 0.3s 即松爪）
-    segs[0].hold = 3.0;  // 展开：等夹爪全开再接近（齿轮全开 ~4.8s，指令已在启动时下发）
+    segs[1].hold = 0.8;  // 下降对姿：留足开爪追到 30mm 的时间（滑入全程间隙 ≥ 50mm）
     segs[2].hold = 2.5;  // 夹持闭合时间（留足包覆可见性）
     segs[9].hold = 1.2;  // 放置：指垫张开脱离母线表面（扩出下落间隙后再松爪）
     segs[10].hold = 0.8; // 释放可见
@@ -333,8 +337,8 @@ export function createDemo(deps: DemoDeps) {
 
   /** 释放跟随：绿块走物理；母线钉住当前位姿——drop=true（放置航点）先播落体动画
    *  再钉到地面，手动停止不带 drop：原地钉住（freejoint 无碰撞，不钉会穿桌坠落）。
-   *  落地静止高度按释放瞬间姿态算：盒体世界竖直半高 = Σ半尺寸·|旋转矩阵第3行|，
-   *  体原点 = 梁中心 + R·BUS_ORIG_FROM_CENTER（梁中心落地 = 竖直半高）。 */
+   *  落地静止高度按释放瞬间姿态算：旋转包围盒最低点触地 →
+   *  origin_z = −Σ min(R[2][i]·BUS_MIN[i], R[2][i]·BUS_MAX[i])（体原点在包围盒 (0,0,0) 角）。 */
   function releaseGrasp(target: 'cube' | 'busbar', drop = false): void {
     graspHeld = false;
     if (target === 'busbar' && hasBusbar && busPin) {
@@ -345,14 +349,13 @@ export function createDemo(deps: DemoDeps) {
       );
       _m1.makeRotationFromQuaternion(quat);
       const e = _m1.elements; // 列主序：e[2]/e[6]/e[10] = 旋转矩阵第 3 行（件 x̂/ŷ/ẑ 的世界 z 分量）
-      const halfH = BUS_PART_HALF[0] * Math.abs(e[2]) + BUS_PART_HALF[1] * Math.abs(e[6])
-        + BUS_PART_HALF[2] * Math.abs(e[10]);
-      const restZ = Math.max(
-        halfH + e[2] * BUS_ORIG_FROM_CENTER[0] + e[6] * BUS_ORIG_FROM_CENTER[1]
-        + e[10] * BUS_ORIG_FROM_CENTER[2],
-        0.004, // 兜底：怪异姿态不让原点低于桌面
-      );
-      if (drop && pz > restZ + 0.004) {
+      let restZ = 0;
+      for (let i = 0; i < 3; i++) {
+        const rz = e[2 + 4 * i]; // 件第 i 轴的世界 z 分量
+        restZ += Math.min(rz * BUS_MIN[i], rz * BUS_MAX[i]);
+      }
+      restZ = Math.max(-restZ, 0.004); // 兜底：怪异姿态不让原点低于桌面
+      if (drop && pz > restZ + 0.001) {
         busDrop = {
           from: new THREE.Vector3(px, py, pz), quat, restZ,
           t0: performance.now(), dur: Math.sqrt(2 * (pz - restZ) / GRAV),
@@ -547,9 +550,9 @@ export function createDemo(deps: DemoDeps) {
     stopReplay();
     stop();
     resetBusbar(); // 母线放回极柱（重复演示可复位）
-    // 夹爪立即开始全开：齿轮电机力矩饱和全开需 ~4.8s，若等"展开"段到位才下发，
-    // 机械臂滑到夹取位时指还没全开，半开的下指会切穿横梁（用户录像实测）
-    deps.setGripTarget(deps.gripOpenRad);
+    // 夹爪启动即开始张开（用户定：20mm/侧预备开度即可，不必全开等 4.8s——
+    // 分级开度 20→30mm 与渐进接近同步，滑入前到位）
+    deps.setGripTarget(GRIP_BUSBAR_PRE);
     running = true;
     done = false;
     segIdx = 0;

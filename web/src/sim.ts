@@ -190,9 +190,16 @@ async function main(): Promise<void> {
   const bodyXpos = data.xpos as Float64Array; // 3*nbody 实时视图
   const bodyXquat = data.xquat as Float64Array; // 4*nbody (w,x,y,z)
   const geomBindings: { mesh: THREE.Mesh; body: number; gp: THREE.Vector3; gq: THREE.Quaternion }[] = [];
+  const skipGeoms = new Set<string>(['web_table']); // 灰色地板面：与背景幕布格格不入，物理保留仅隐藏视觉
   for (let g = 0; g < model.ngeom; g++) {
     const type = model.geom_type[g];
     if (model.geom_group[g] === 3) continue; // group 3 = 调试碰撞盒（查看器惯例默认隐藏）
+    const gname = model.names.subarray(
+      model.name_geomadr[g],
+      model.names.indexOf(0, model.name_geomadr[g]),
+    ) as unknown as Uint8Array;
+    const gnameStr = model.name_geomadr[g] >= 0 ? new TextDecoder().decode(gname) : '';
+    if (skipGeoms.has(gnameStr)) continue; // 命名几何按需隐藏（碰撞不受影响）
     let geo: THREE.BufferGeometry;
     if (type === 7) {
       geo = meshGeometry(model.geom_dataid[g]); // mjGEOM_MESH

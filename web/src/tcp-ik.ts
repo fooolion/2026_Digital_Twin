@@ -25,16 +25,19 @@ export interface TcpIk {
   servo(target: readonly [number, number, number], dt: number): number;
   /** 离线求解：从 seed 出发迭代到收敛（≤SOLVE_MAX_ITER=150 轮），返回解的角度副本（不碰物理态）。
    *  axisDesired（可选）：末端轴（end_link x̂ = 夹爪指向）的世界方向目标。
-   *  j6（可选）：期望 J6 角（rad，对齐样件平行面）——轴约束解先置该值再锁 J6 拉回位置。
+   *  j6（可选）：期望 J6 角（rad，对齐样件平行面）——默认路径：轴约束解先置该值再锁 J6
+   *  拉回位置（J6 滚转会带 tcp 漂移 ~11.5mm，由 J1..J4 补偿，轴向会略有牺牲）。
    *  j5（可选）：侧抓腕角绝对值（rad）——夹爪轴水平（如母线横梁上下平面夹持）时传入，
    *  网格对 ±j5 取轴误差更优者，返回的 q[4] 即选定符号。
    *  branchLock（可选）：true 时先围绕 seed 解的同分支邻域（±35°）窗口搜索，位置 <4cm 且
    *  轴误差 <8.6° 即采纳，不达标才回退全局搜索——持物段（母线拆解）分支连续性的关键：
    *  本臂水平径向位姿有肘上/肘下两族解，逐航点独立全局搜索会在两族间跳变，关节插值
-   *  穿过跳变时末端姿态大幅翻滚（持物翻滚/母线竖直悬挂的根因）。 */
+   *  穿过跳变时末端姿态大幅翻滚（持物翻滚/母线竖直悬挂的根因）。
+   *  j6InGrid（可选，需与 j6 同用）：网格评估时原生带上 J6（轴与位置都在正确滚转角下
+   *  评估，免 pull-back 的轴牺牲）——放置段等对末端姿态要求高的航点用。 */
   solveTo(seed: Float64Array, target: readonly [number, number, number],
           axisDesired?: readonly [number, number, number], j6?: number, j5?: number,
-          branchLock?: boolean): Float64Array; // 恒有解（网格/迭代路径不返回 null）
+          branchLock?: boolean, j6InGrid?: boolean): Float64Array; // 恒有解（网格/迭代路径不返回 null）
   /** 把 IK 解重置为物理当前关节角（抓球/死区回位时调用——否则 IK 解与物理姿态
    *  脱节，回位瞬间 CTC 目标角跳变，臂会"弹"一下）。 */
   resetToPhysics(): void;
@@ -203,6 +206,7 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
     j6?: number,
     j5?: number,
     branchLock?: boolean,
+    j6InGrid?: boolean,
   ): Float64Array {
     // 影子纪律与 servo 一致：进出恢复物理态——中途 putQ 的候选解（含被拒的）
     // 绝不能留在 data.qpos 里，否则演示建计划一结束物理臂被瞬移到垃圾姿态
@@ -210,11 +214,12 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
     saved.set(data.qpos);
     try {
       const q = axisDesired
-        ? solveByGrid(target, axisDesired, j5, branchLock ? seed : undefined)
+        ? solveByGrid(target, axisDesired, j5, branchLock ? seed : undefined, j6InGrid ? j6 : undefined)
         : solve3D(seed, target);
       // j6 期望（对齐样件平行面）：直搜解 J6 恒 0——先置期望值，再锁 J6 用其余关节
-      // 拉回位置（J6 滚转会带 tcp 漂移 ~11.5mm，由 J1..J4 补偿；轴方向大体保持竖直）
-      if (j6 !== undefined) {
+      // 拉回位置（J6 滚转会带 tcp 漂移 ~11.5mm，由 J1..J4 补偿；轴方向大体保持竖直）。
+      // j6InGrid 路径已在网格内按正确 J6 评估，直接置角返回（轴向精度不牺牲）。
+      if (j6 !== undefined && !j6InGrid) {
         q[5] = clip(j6, lo[5], hi[5]);
         return solve3D(q, target, j6);
       }
@@ -261,7 +266,8 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
   }
 
   /** 6D 航点三级网格直搜：J1 对准目标 yaw、J2/J3/J4 竖直平面三关节求解
-   *  （竖直下压 J5=J6=0；侧抓传 j5=腕角绝对值，网格对 ±j5 取轴误差更优者）。
+   *  （竖直下压 J5=J6=0；侧抓传 j5=腕角绝对值，网格对 ±j5 取轴误差更优者；
+   *  j6v 传入时网格原生带上 J6 滚转——轴/位置都在正确滚转角下评估）。
    *  粗 10° 宽窗 → ±10°·5° → ±4°·2°，纯函数评估、无局部最小陷阱。
    *  seed（可选）：先做种子 ±35° 窗口搜索（同分支连续，5° 粗扫 + 两级细化），
    *  达标即返回；否则走全局三级搜索。 */
@@ -270,10 +276,12 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
     axisDesired: readonly [number, number, number],
     j5?: number,
     seed?: Float64Array,
+    j6v?: number,
   ): Float64Array {
     const yaw = Math.atan2(target[1], target[0]);
     const D = Math.PI / 180;
     const des = [...axisDesired];
+    const j6q = j6v ?? 0;
     let j5Best = 0;
     /** 评 j2/j3/j4（度）+ j5（rad，直写）：写入 data + forward + 位置误差 + AXIS_W×轴向误差 */
     const evalQ = (j2: number, j3: number, j4: number, j5v: number): number => {
@@ -281,6 +289,7 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
       data.qpos[0] = yaw;
       data.qpos[1] = j2 * D; data.qpos[2] = j3 * D; data.qpos[3] = j4 * D;
       data.qpos[4] = j5v;
+      data.qpos[5] = j6q;
       forward();
       const c = tcp();
       return Math.hypot(target[0] - c[0], target[1] - c[1], target[2] - c[2]) +
@@ -330,7 +339,7 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
         const pErr = Math.hypot(target[0] - c[0], target[1] - c[1], target[2] - c[2]);
         if (pErr < WIN_GATE_P && norm3(cross3(endAxis(), des)) < WIN_GATE_A) {
           return new Float64Array([
-            clip(yaw, lo[0], hi[0]), wBest[0] * D, wBest[1] * D, wBest[2] * D, j5Best, 0,
+            clip(yaw, lo[0], hi[0]), wBest[0] * D, wBest[1] * D, wBest[2] * D, j5Best, j6q,
           ]);
         }
       }
@@ -356,7 +365,7 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
           }
     }
     return new Float64Array([
-      clip(yaw, lo[0], hi[0]), best[0] * D, best[1] * D, best[2] * D, j5Best, 0,
+      clip(yaw, lo[0], hi[0]), best[0] * D, best[1] * D, best[2] * D, j5Best, j6q,
     ]);
   }
 

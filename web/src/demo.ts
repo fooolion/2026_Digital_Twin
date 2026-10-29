@@ -1,7 +1,7 @@
 /**
  * 任务控制器：一键夹取演示（关节空间轨迹播放器 + 运动学跟随抓取）
  *           + 路径录制回放（Catmull-Rom 关节插值 + 引导段）。
- * Rev: P5 · 2026-10-29
+ * Rev: P6 · 2026-10-29
  */
 import * as THREE from 'three';
 import type { TcpIk } from './tcp-ik';
@@ -108,7 +108,7 @@ export function createDemo(deps: DemoDeps) {
   //   指尖止于 0.331，距拱壁 3mm——不提前则闭合姿态本身就穿模（与开度无关）。
   //   渐进接近（用户路径）：启动即开爪 20mm/侧 → 展开点(J6=90° 水平径向姿态) →
   //   同 x 垂直下降到梁高（指尖全程在梁区外侧，斜线下降会扫梁）→ 开爪 30mm/侧 →
-  //   水平滑入 40mm（横梁进入指区，间隙 60mm 不穿模）→ 闭合夹住上下平面 →
+  //   水平滑入 32mm（横梁进入指区，间隙 60mm 不穿模）→ 闭合夹住上下平面 →
   //   垂直拔出 → 搬运 → 翻转调姿（轴竖直向下/肘抬高换分支）→ 下降张开包围 → 松爪落体。
   //   解算顺序 ≠ 播放顺序；持物段 branchLock 锁分支，调姿点全局重解。
   const BUSBAR_TCP_OFFSET = new THREE.Vector3(0.001, 0.015, 0.063); // 文件坐标；x 比梁中心提前 10mm 防指尖穿拱壁
@@ -121,7 +121,9 @@ export function createDemo(deps: DemoDeps) {
   const BUSBAR_AXIS_DOWN = [0, 0, -1] as const; // 放置段轴：竖直向下（腕部俯冲、肘抬高）
   const BUSBAR_PLACE_J6 = -Math.PI / 4; // 放置段 J6：闭合线对准世界 x（实测标定，非手推公式）
   const BUSBAR_ADJUST_Z = 0.15;       // 调姿高度：轴竖直向下在该半径(0.42m)的 tcp 可达上限 ~0.19
-  const BUSBAR_PLACE_TCP_Z = 0.04;    // 释放 tcp 高度（拱底 ~2mm 即将触地，短落体）
+  const BUSBAR_PLACE_TCP_Z = 0.07;    // 释放 tcp 高度：抓取捕获的姿态有 ~±5° run 间方差，倾斜时包围盒
+                                      // 角下探加深（99mm 边 × sinθ）——0.07 保证落体条件总触发，
+                                      // 由自适应 restZ 精确贴地；平放时约 2cm 自然落差
   const GRAV = 9.81;                  // 落体动画重力（m/s²）
   // 母线真实包围盒·件系（busbar.stl 实测：49×99×126mm）——落地静止高度按释放瞬间
   // 姿态实时算（见 releaseGrasp）：竖直半高模型曾按 20×26×80 小梁假设，实测下陷 ~28mm
@@ -178,9 +180,8 @@ export function createDemo(deps: DemoDeps) {
 
   /** 离线解一个航点：axisVec 给定轴约束（母线侧抓水平径向）；否则竖直下压（网格直搜） */
   function solveWaypoint(seed: Float64Array, p: readonly [number, number, number],
-                         axis?: boolean, j6?: number,
-                         axisVec?: readonly [number, number, number], j5?: number): Float64Array {
-    return ik.solveTo(seed, p, axisVec ?? (axis ? GRASP_AXIS : undefined), j6, j5);
+                         axis?: boolean, j6?: number): Float64Array {
+    return ik.solveTo(seed, p, axis ? GRASP_AXIS : undefined, j6);
   }
 
   /** 生成整段演示计划（8 航点 → 8 段关节插值） */

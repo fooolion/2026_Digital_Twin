@@ -11,9 +11,11 @@ import loadMujoco from '@mujoco/mujoco';
 import { createTcpIk } from './tcp-ik';
 import { createDemo } from './demo';
 import { mountNav, toast } from './nav';
+import { mountBackdrop } from './backdrop';
 import './theme.css';
 import './sim.css';
 
+mountBackdrop();
 mountNav('sim');
 import { createJointPanel } from './panel';
 
@@ -88,7 +90,8 @@ async function main(): Promise<void> {
   );
 
   // ===== Three.js 场景（Z-up，与 MuJoCo 一致）=====
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setClearColor(0x000000, 0); // 透明清屏：露出 .ambient 统一背景（粒子星野+地平线）
   renderer.setSize(innerWidth, innerHeight);
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   document.body.appendChild(renderer.domElement);
@@ -99,7 +102,7 @@ async function main(): Promise<void> {
   });
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0b0e14);
+  scene.background = null; // 透明场景：地平线剪影与粒子由页面背景层承担（三页统一）
 
   const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.01, 20);
   camera.up.set(0, 0, 1);

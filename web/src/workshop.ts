@@ -6,11 +6,13 @@
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { mountBackdrop } from './backdrop';
 import { mountNav, toast } from './nav';
 import { loadBattery } from './battery';
 import './theme.css';
 import './parts.css';
 
+mountBackdrop();
 mountNav('workshop');
 
 /* ===== 零件数据 ===== */

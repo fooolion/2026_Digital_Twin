@@ -7,6 +7,7 @@
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { mountBackdrop } from './backdrop';
 import { mountNav, renderStatList, type StatItem } from './nav';
 import { watchCompanion } from './companion';
 import { loadBattery } from './battery';
@@ -49,6 +50,7 @@ const FLOW = [
 
 /* ===== 渲染（配置 → DOM） ===== */
 
+mountBackdrop();
 mountNav('home');
 
 renderStatList(document.getElementById('stat-list')!, SYSTEM);

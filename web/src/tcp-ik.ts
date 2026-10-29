@@ -26,7 +26,7 @@ export interface TcpIk {
   /** 离线求解：从 seed 出发迭代到收敛（≤SOLVE_MAX_ITER=150 轮），返回解的角度副本（不碰物理态）。
    *  axisDesired（可选）：末端轴（end_link x̂ = 夹爪指向）的世界方向目标。
    *  j6（可选）：期望 J6 角（rad，对齐样件平行面）——默认路径：轴约束解先置该值再锁 J6
-   *  拉回位置（J6 滚转会带 tcp 漂移 ~11.5mm，由 J1..J4 补偿，轴向会略有牺牲）。
+   *  拉回位置（J6 滚转会带 tcp 漂移 ~11.5mm，由 J1..J5 补偿，轴向会略有牺牲）。
    *  j5（可选）：侧抓腕角绝对值（rad）——夹爪轴水平（如母线横梁上下平面夹持）时传入，
    *  网格对 ±j5 取轴误差更优者，返回的 q[4] 即选定符号。
    *  branchLock（可选）：true 时先围绕 seed 解的同分支邻域（±35°）窗口搜索，位置 <4cm 且
@@ -104,10 +104,12 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
     const w = data.xquat[q4], x = data.xquat[q4 + 1], y = data.xquat[q4 + 2], z = data.xquat[q4 + 3];
     return [1 - 2 * (y * y + z * z), 2 * (x * y + w * z), 2 * (x * z - w * y)];
   }
-  const cross3 = (a: number[], b: number[]): [number, number, number] => [
-    a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0],
-  ];
-  const norm3 = (a: number[]): number => Math.hypot(a[0], a[1], a[2]);
+  /** 与 endAxis 配套的轴向度量：endAxis/des 均为单位向量。
+   *  代价用 acos(dot) = 两轴夹角（rad）：小角度区与旧 |cross|≈sinθ 度量等值（θ<20° 差 <2%），
+   *  保持既有轴权重语义；反平行 dot=-1 → θ=π → 罚 1.57m 当量，排除 |cross| 区分不了的反平行解。 */
+  const dot3 = (a: number[], b: number[]): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const axisErrRad = (a: number[], b: number[]): number =>
+    Math.acos(Math.min(1, Math.max(-1, dot3(a, b))));
 
   /** 6 维迭代法（6×6 Gram DLS / 转置法）已删：本臂 6D Gram 近奇异，迭代漂进镜像
    *  解/限位（实测），带姿态航点改走 solveByGrid 三级网格直搜——纯函数评估无陷阱。 */
@@ -230,13 +232,14 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
     }
   }
 
-  const AXIS_W = 0.5;      // 轴向误差权重（rad ↔ m 折算）
+  const AXIS_W = 0.5;      // 轴向误差权重（rad 当量）：acos(dot)=夹角，反平行罚 1.57m 必不入选
   const WIN_SPAN = 35;     // branchLock 窗口半宽（deg）：同分支邻域
   const WIN_GATE_P = 0.04; // 窗口解验收：位置误差 <4cm（超出 → 全局重搜，允许必要换分支）
-  const WIN_GATE_A = 0.15; // 窗口解验收：轴误差 <0.15（≈8.6°）
+  const WIN_GATE_A = 0.15; // 窗口解验收：轴夹角 <0.15rad≈8.6°（acos 度量，与旧 sinθ<0.15 语义一致）
 
   /** 纯位置 3D DLS：链式种子迭代到收敛（无姿态诉求的过渡航点，历史验证收敛）。
-   *  j6Lock：锁定 J6（rad）只解其余关节——配合 solveTo 的 J6 期望做位置拉回。 */
+   *  j6Lock：锁定 J6（rad）。注意 DLS 六列全开，仅每轮重写 q[5]——J1..J5 都参与
+   *  位置拉回（J5 也会动，轴向因此略有牺牲；种子良好时 J5 位移很小）。 */
   function solve3D(seed: Float64Array, target: readonly [number, number, number],
                    j6Lock?: number): Float64Array {
     const q = new Float64Array(N);
@@ -293,7 +296,7 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
       forward();
       const c = tcp();
       return Math.hypot(target[0] - c[0], target[1] - c[1], target[2] - c[2]) +
-        AXIS_W * norm3(cross3(endAxis(), des));
+        AXIS_W * axisErrRad(endAxis(), des);
     };
     // 侧抓（j5 传入）：±j5 哪个使轴误差更小（J5 轴方向决定，解析上取决于安装）
     if (j5 !== undefined) {
@@ -337,7 +340,7 @@ export function createTcpIk(mujoco: any, model: any, data: any): TcpIk {
         forward();
         const c = tcp();
         const pErr = Math.hypot(target[0] - c[0], target[1] - c[1], target[2] - c[2]);
-        if (pErr < WIN_GATE_P && norm3(cross3(endAxis(), des)) < WIN_GATE_A) {
+        if (pErr < WIN_GATE_P && axisErrRad(endAxis(), des) < WIN_GATE_A) {
           return new Float64Array([
             clip(yaw, lo[0], hi[0]), wBest[0] * D, wBest[1] * D, wBest[2] * D, j5Best, j6q,
           ]);

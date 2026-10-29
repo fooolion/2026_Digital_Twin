@@ -332,6 +332,17 @@ export function createDemo(deps: DemoDeps) {
       data.qpos[graspedQadr + 1] - data.xpos[e3 + 1],
       data.qpos[graspedQadr + 2] - data.xpos[e3 + 2],
     ).applyQuaternion(_q2);
+    if (target === 'busbar') {
+      // 垂直对中：捕获瞬间物理 TCP 还有 ≤4mm 收敛残差（settle 门槛），刚体捕获会把
+      // 残差冻进相对位姿——指垫中心偏离横梁轴心，表现为下指陷进梁下表面、上指悬空
+      // （用户实测）。修正：把零件沿世界 z 平移 Δz = tcp_z − 梁轴心z（件 y 15mm），
+      // 使梁轴心正对指垫中心；偏移随 0.4s 软启动混合平滑滑入，无跳变。
+      // 注意必须在 _q2 被 multiply 污染前用（此处仍是 eQ⁻¹）。
+      const beamAxisZ = data.qpos[graspedQadr + 2] + 0.015; // 横梁轴心世界 z（直立姿态，件 y 15mm）
+      const dz = data.site_xpos[3 * ik.siteId + 2] - beamAxisZ;
+      _v1.set(0, 0, dz).applyQuaternion(_q2); // 世界 Δz → end_link 系
+      graspRelPos.add(_v1);
+    }
     // 关键：MuJoCo 四元数 qpos 是 wxyz，THREE.Quaternion.set 是 (x,y,z,w)——分量序
     // 直传会把姿态打乱（母线 home 姿态被换成 120° 错姿态 → 夹取瞬间翻转 120° 成
     // "竖直悬挂"，立方体因对称性看不出来）。项目第 5 次"字面相同约定不同"。

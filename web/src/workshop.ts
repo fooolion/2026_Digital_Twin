@@ -6,7 +6,7 @@
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { mountBackdrop } from './backdrop';
+import { mountBackdrop, mountSceneHorizon } from './backdrop';
 import { mountNav, toast } from './nav';
 import { loadBattery } from './battery';
 import './theme.css';
@@ -46,6 +46,7 @@ controls.target.set(0, 0, 0.03);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.enablePan = false;
+mountSceneHorizon(scene, camera, { distance: 0.85, width: 1.4, height: 0.45, glowZ: 0.02, dust: 70 });
 
 scene.add(new THREE.AmbientLight(0xbfd4ff, 0.6));
 const key = new THREE.DirectionalLight(0xffffff, 1.1); key.position.set(1, -2, 2.5); scene.add(key);

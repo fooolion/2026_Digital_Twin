@@ -11,7 +11,7 @@ import loadMujoco from '@mujoco/mujoco';
 import { createTcpIk } from './tcp-ik';
 import { createDemo } from './demo';
 import { mountNav, toast } from './nav';
-import { mountBackdrop } from './backdrop';
+import { mountBackdrop, buildHorizonTexture, dotTexture } from './backdrop';
 import './theme.css';
 import './sim.css';
 
@@ -106,50 +106,13 @@ async function main(): Promise<void> {
 
   // ===== 方案3+6 场景内背景：地平线渐变幕布 + 厂房剪影 + 尘埃粒子 =====
   // （仿真页是全屏 3D，页面背景层只露出边缘——把同一视觉语言搬进场景才能看见）
-  {
-    const cv = document.createElement('canvas');
-    cv.width = 2048; cv.height = 640;
-    const c = cv.getContext('2d')!;
-    const g = c.createLinearGradient(0, 0, 0, 640);
-    g.addColorStop(0, 'rgba(10,17,32,0)'); // 顶边透明渐隐：幕布上缘融入页面背景，不见接缝
-    g.addColorStop(0.45, '#0d1c33');
-    g.addColorStop(0.72, '#14304f'); g.addColorStop(0.78, '#0e2138'); g.addColorStop(1, '#0b1526');
-    c.fillStyle = g; c.fillRect(0, 0, 2048, 640);
-    const lg = c.createLinearGradient(0, 0, 2048, 0);
-    lg.addColorStop(0, 'rgba(120,220,255,0)'); lg.addColorStop(0.5, 'rgba(140,225,255,.55)');
-    lg.addColorStop(1, 'rgba(57,217,138,0)');
-    c.fillStyle = lg; c.fillRect(0, 452, 2048, 2);
-    c.save();
-    c.setTransform(2048 / 1440, 0, 0, -1.05, 0, 453); // 剪影坐在辉光线上、向上展开
-    c.fillStyle = 'rgba(22,38,66,.55)';
-    c.fill(new Path2D('M0 140 V96 h90 v-18 h70 v18 h120 V70 h110 v70 h180 V88 h130 v-16 h80 v16 h150 V78 h140 v62 z'));
-    c.fillStyle = '#0c1830';
-    c.fill(new Path2D('M40 140 V92 l36 -22 l34 22 v-4 h8 v-18 l36 -22 l34 22 V140 Z'));
-    c.fill(new Path2D('M238 34 h16 v106 h-16 Z'));
-    c.fill(new Path2D('M300 140 V78 a26 26 0 0 1 52 0 V140 Z'));
-    c.fill(new Path2D('M430 140 V56 h210 v10 h-14 v74 h-12 V66 h-158 v74 h-12 V66 h-14 Z'));
-    c.fill(new Path2D('M700 96 h260 v44 h-260 Z'));
-    c.fill(new Path2D('M1010 140 V84 l36 -22 l34 22 v-6 h10 V60 l36 -22 l34 22 v14 h12 V140 Z'));
-    c.fill(new Path2D('M1190 52 h14 v88 h-14 Z'));
-    c.fillStyle = 'rgba(57,217,138,.16)';
-    c.fillRect(86 / 1.42, 0, 0, 0); // 占位（窗灯在下方逐个画）
-    c.restore();
-    // 窗灯（世界感点缀）
-    c.fillStyle = 'rgba(57,217,138,.16)';
-    for (const [wx, wy] of [[86, 104], [120, 104], [740, 110], [800, 110], [1240, 96]] as const) {
-      c.fillRect(wx * (2048 / 1440), 453 - wy * 1.05, 5 * 1.42, 7 * 1.05);
-    }
-    c.fillStyle = 'rgba(79,216,255,.14)';
-    for (const [wx, wy] of [[452, 70], [1092, 70]] as const) {
-      c.fillRect(wx * (2048 / 1440), 453 - wy * 1.05, 5 * 1.42, 7 * 1.05);
-    }
-    const bdTex = new THREE.CanvasTexture(cv);
+  const bdTex = buildHorizonTexture(); // 共享地平线纹理（剪影正立于辉光线上）
     bdTex.colorSpace = THREE.SRGBColorSpace;
     const backdrop = new THREE.Mesh(
       new THREE.PlaneGeometry(16, 5.2),
       new THREE.MeshBasicMaterial({ map: bdTex }),
     );
-    backdrop.position.set(0, -4.2, 1.7);
+    backdrop.position.set(0, -4.2, 0.03 + 5.2 * 0.208); // 辉光线贴地（纹理 70.8% 高度处 → 中心 = glowZ + 0.208H）
     backdrop.up.set(0, 0, 1);
     backdrop.lookAt(0, 1.7, 0.75);
     scene.add(backdrop);
@@ -165,12 +128,11 @@ async function main(): Promise<void> {
     const dustGeo = new THREE.BufferGeometry();
     dustGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
-      color: 0x9fd4ff, size: 0.012, transparent: true, opacity: 0.5,
+      color: 0x9fd4ff, size: 0.012, transparent: true, opacity: 0.5, map: dotTexture(),
       blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
     }));
     scene.add(dust);
     (window as any).__dust = dust; // 渲染循环里做缓慢旋涡（见 tick）
-  }
 
   const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.01, 20);
   camera.up.set(0, 0, 1);

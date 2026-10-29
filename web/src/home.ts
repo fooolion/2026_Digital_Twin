@@ -7,7 +7,7 @@
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { mountBackdrop } from './backdrop';
+import { mountBackdrop, mountSceneHorizon } from './backdrop';
 import { mountNav, renderStatList, type StatItem } from './nav';
 import { watchCompanion } from './companion';
 import { loadBattery } from './battery';
@@ -96,6 +96,7 @@ camera.position.set(0.72, -0.92, 0.5);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 0, 0.24);
+mountSceneHorizon(scene, camera, { distance: 1.5, width: 2.6, height: 0.9, glowZ: 0.06, dust: 90 });
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.minDistance = 0.4; controls.maxDistance = 2.8;

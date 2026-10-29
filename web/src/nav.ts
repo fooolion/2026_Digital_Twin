@@ -39,7 +39,8 @@ export function mountNav(active: string): void {
   onScroll();
 }
 
-/** 轻提示（2.4s 自动消失） */
+/** 轻提示（2.4s 自动消失）；连发时新消息接管生命周期——旧定时器不清会提前隐藏新 toast */
+let toastTimer = 0;
 export function toast(msg: string): void {
   let t = document.getElementById('toast');
   if (!t) {
@@ -49,7 +50,8 @@ export function toast(msg: string): void {
   }
   t.textContent = msg;
   t.classList.add('show');
-  window.setTimeout(() => t!.classList.remove('show'), 2400);
+  window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => t!.classList.remove('show'), 2400);
 }
 
 /** 状态列表渲染（跨页组件：总览/监控/遥操作；样式 .stat-list 在 theme.css）。

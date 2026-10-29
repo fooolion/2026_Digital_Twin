@@ -34,7 +34,7 @@ import cv2
 import numpy as np
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -277,7 +277,8 @@ async def stream_config() -> dict:
 async def cam_mjpg(slot: int):
     from fastapi.responses import StreamingResponse
     if slot >= len(_CAMS):
-        return {"ok": False, "detail": "slot out of range"}
+        # 404 让前端 img.onerror 立即走预录兜底；200+JSON 语义错（成功响应却非图片）
+        raise HTTPException(status_code=404, detail=f"slot {slot} out of range")
     return StreamingResponse(
         _CAMS[slot].frames(),
         media_type="multipart/x-mixed-replace; boundary=frame",

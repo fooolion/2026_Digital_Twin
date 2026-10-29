@@ -178,9 +178,13 @@ export function mountBackdrop(): void {
     }));
   };
   seed();
-  window.addEventListener('resize', seed);
+  const staticOnly = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  window.addEventListener('resize', () => {
+    seed(); // seed 里 cv.width 赋值会清空画布
+    if (staticOnly) draw(0); // 静帧模式无动画循环：补绘一帧，否则 resize 后粒子层空白
+  });
 
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (staticOnly) {
     draw(0); // 静帧：只画一帧，不做动画
     return;
   }

@@ -25,8 +25,8 @@ renderStatList(document.getElementById('mn-stats')!, STATS);
 /* ===== 三块共享探测：watchCompanion 统一驱动（周期重探；服务后启动也能恢复） ===== */
 watchCompanion((h) => {
   if (!h?.ok) {
-    picoState('warn', '未启动（演示模式）');
-    camStat('warn', '未启动（演示模式）');
+    // 无服务=预录演示态：PICO/双相机的状态行由预录层自己标注（"预录视频/预录演示"，
+    // 与画面一致）——这里再覆盖成"未启动"会与正在播放的画面矛盾（竞态下两个方向都可能发生）
     wsStat('warn', '未启动（演示模式）');
     return;
   }
@@ -34,10 +34,6 @@ watchCompanion((h) => {
   void setupCams();
   void setupBridge();
 });
-// 页面加载即跑一次：无伴生服务（Pages 部署/本地演示）也要有画面——本地预录兜底；
-// 伴生服务上线后 watchCompanion 会再调（升级实时流/服务视频，picoSetUpLive 防重复拉流）
-void setupPico();
-
 /* ===== P5-C：PICO 大屏三层降级（WHEP 实时流 > 预录视频 > 占位层） ===== */
 const picoVideo = document.getElementById('pico-video') as HTMLVideoElement;
 const picoPh = document.getElementById('pico-ph')!;
@@ -64,6 +60,11 @@ function showPicoPh(): void {
 const PICO_LOCAL_VIDEO = `${import.meta.env.BASE_URL}videos/pico-observe.mp4`;
 
 let picoSetUpLive = false; // 实时流已建立标记：伴生服务回调重复触发 setupPico 时不再重拉/降级
+
+// 页面加载即跑一次：无伴生服务（Pages 部署/本地演示）也要有画面——本地预录兜底；
+// 伴生服务上线后 watchCompanion 会再调（升级实时流/服务视频，picoSetUpLive 防重复拉流）。
+// 注意必须在 picoSetUpLive 等标记声明之后：async 函数体首段同步执行，提前调用会踩 TDZ。
+void setupPico();
 
 async function setupPico(): Promise<void> {
   if (picoSetUpLive) return; // ① 已在实时流，降级逻辑不应回头
@@ -179,6 +180,9 @@ function attachCam(slot: 0 | 1): void {
 
 // 页面隐藏：摘掉 MJPEG src（img 流不会自动暂停，后台持续下载+解码 CPU）；回来再挂
 document.addEventListener('visibilitychange', () => {
+  // PICO 主视频随可见性暂停/恢复（实时流/预录两态通吃；占位态无源时 play 的拒绝被 catch）
+  if (document.hidden) picoVideo.pause();
+  else void picoVideo.play().catch(() => { /* 占位态无源/自动播放拦截：静默 */ });
   if (camsAttached) {
     if (document.hidden) {
       camImgs.forEach((img) => img.removeAttribute('src'));

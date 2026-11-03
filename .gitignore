@@ -1,5 +1,5 @@
 # ===== Python =====
-mujoco_sim/.rebot/          # 虚拟环境（ teammate 用 docs/环境搭建指南.md 自建）
+mujoco_sim/.rebot/          # 虚拟环境（ teammate 用 docs/notes/环境搭建指南.md 自建）
 __pycache__/
 *.pyc
 
@@ -36,6 +36,9 @@ web/dist/
 Thumbs.db
 desktop.ini
 
+# 中间文件与缓存统一放这里（2026-11-03 定：剪辑/分析等中间产物禁止写 C 盘，一律进项目根 temp/，用完可清）
+/temp/
+
 # ===== 公开仓库前移出的敏感/版权文件（2026-10-22 整理；本地保留，不入库）=====
 # 个人隐私：报名表（全队个人信息）、个人总结、工作日志（全队真名与分工）
 /docs/
@@ -45,6 +48,17 @@ desktop.ini
 /tools/DMTool 2.1.8.2.exe
 /tools/DM调试工具参数导出.txt
 /tools/达妙科技-USB转CANFD模块使用说明书V1.0.pdf
+
+# 本地新工具脚本不入库（2026-11-03 整理）：说明书构建链与出图脚本
+# tools 下已入库的历史脚本（cli_arm_controller / pc_bridge_client / safety_monitor /
+# test_force / gravity_drop_sim / step_cyl_axes / verify_three_models）维持跟踪不受影响
+/tools/build_shuomingshu.py
+/tools/build_shuomingshu_tex.py
+/tools/build_shuomingshu_docx_template.py
+/tools/check_svgs.py
+/tools/plot_fig11_drop_curve.py
+/tools/plot_fig12_joint_axes.py
+/tools/fig12_dump_joint_axes.py
 # 主办方/厂商模型物料（SolidWorks 装配 53MB）
 /reBot_DM_model/
 # 团队建模成果（赛前公开有被抄风险）：unitypackage 与 SolidWorks/FBX 资产

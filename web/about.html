@@ -5,7 +5,7 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http%3A//www.w3.org/2000/svg%22%20viewBox=%220%200%20512%20512%22%3E%3Cpath%20fill=%22%232ee584%22%20d=%22M329.78%2020.344c-.842.003-1.687.005-2.53.03-25.534.782-51.27%2011.864-71.53%2032.064-40.637%2040.512-45.503%2099.74-12.75%20162.156%207.468-7.77%2017.948-12.625%2029.5-12.625%201.63%200%203.228.123%204.81.31-7.385-12.674-12.023-25.99-13.467-39.686-2.692-25.526%205.91-51.74%2025.906-75.594%2017.222-20.545%2042.123-29.6%2066.967-32.313%2015.924-1.738%2031.875-.833%2046.72%201.25-21.29-24.748-47.497-35.683-73.626-35.593zm127.94%2089.75c2.057%2014.84%202.9%2030.782%201.06%2046.687-2.86%2024.738-12.102%2049.482-32.686%2066.626-23.92%2019.92-50.076%2028.506-75.563%2025.813-12.917-1.366-25.496-5.572-37.53-12.25.288%201.948.438%203.942.438%205.968%200%2011.155-4.536%2021.308-11.844%2028.718C363.07%20302.49%20421.276%20296.65%20461.28%20256.78c23.21-23.127%2034.594-52.96%2031.97-81.81-2.11-23.183-13.242-45.94-35.53-64.876zM272.47%20220.656c-12.417%200-22.283%209.866-22.283%2022.28%200%2012.417%209.866%2022.283%2022.282%2022.283%2012.414%200%2022.28-9.867%2022.28-22.283%200-12.415-9.866-22.28-22.28-22.28zm-39.72%2012.25C161.344%20259.196%2083.694%20294.76%2019.094%20348.03v82.376c67.566-58.922%20143.974-114.322%20208.72-145.25-31.175%2064.465-87.04%20140.404-146.158%20207.688h78.72c52.763-63.457%2090.673-139.32%20118-209.375-1.93.28-3.903.436-5.907.436-22.517%200-40.97-18.452-40.97-40.97%200-3.46.43-6.812%201.25-10.03z%22/%3E%3C/svg%3E" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="系统背景、工作原理与技术亮点介绍。" />
-    <title>关于本系统 · 报废电池拆解数字孪生</title>
+    <title>关于本系统 · 退役动力电池安全拆解数字孪生遥操作系统</title>
   </head>
   <body>
     <header id="site-nav"></header>
@@ -19,8 +19,8 @@
       <!-- ===== Hero ===== -->
       <section class="hero">
         <div class="relative z-10 px-6 max-w-[1060px] mx-auto w-full">
-          <span class="badge" data-hero><i></i>退役动力电池 · 柔性拆解工作站</span>
-          <h1 data-hero>报废电池拆解<br /><span class="grad-text">数字孪生集成机器人</span><br />遥操作系统</h1>
+          <span class="badge" data-hero><i></i>退役动力电池 · 安全拆解工作站</span>
+          <h1 data-hero>面向退役动力电池安全拆解的<br /><span class="grad-text">数字孪生遥操作系统</span></h1>
           <p class="sub" data-hero>人不进高危现场，让机器进去。PICO VR 沉浸遥操作 × MuJoCo 物理仿真 × 真机闭环——一台可以在浏览器里开动的电池拆解工作站。</p>
           <div class="ctas" data-hero>
             <a class="btn-solid" href="index.html">← 返回总览工作台</a>
@@ -28,9 +28,9 @@
           </div>
           <div class="stats" data-hero>
             <div class="stat glass"><b>6+1</b><span>自由度 · 含齿条夹爪</span></div>
-            <div class="stat glass"><b>±0.2 mm</b><span>真机重复定位精度</span></div>
-            <div class="stat glass"><b>≤5 ms</b><span>双键急停响应</span></div>
-            <div class="stat glass"><b>mm 级</b><span>TCP 拖拽跟踪误差</span></div>
+            <div class="stat glass"><b>9.18 mm</b><span>双相机正交定位残差</span></div>
+            <div class="stat glass"><b>0.8 s</b><span>A+B 长按双键急停</span></div>
+            <div class="stat glass"><b>92 %</b><span>变形工况拆解成功率</span></div>
           </div>
         </div>
         <div class="scroll-hint"><span>下滑了解</span><i></i></div>
@@ -109,33 +109,33 @@
       <section class="sec" id="highlights">
         <h2 class="sec-title" data-rise>把"不可能"做成"日常"</h2>
         <div class="his" data-stagger>
-          <div class="hi glass"><span class="h-tag">视觉</span><h3>首次夹取永久锁存</h3><p>双目 ArUco 解算 + 抓取瞬间锁存位姿，根除标签遮挡导致的跳变。</p></div>
-          <div class="hi glass"><span class="h-tag">感知</span><h3>Unity 盲区推演</h3><p>相机视域外的环境由孪生体补全，操作员感知无死角。</p></div>
+          <div class="hi glass"><span class="h-tag">视觉</span><h3>五阶段抓取锁存契约</h3><p>俯视＋正视双相机 ArUco 解算位姿，抓牢瞬间冻结视觉、改运动学跟随，杜绝视觉与物理引擎双源驱动冲突。</p></div>
+          <div class="hi glass"><span class="h-tag">感知</span><h3>Unity 盲区推演</h3><p>定位出的母排位姿实时映射至 VR 虚拟场景，操作员借三维虚拟空间感知实际作业空间。</p></div>
           <div class="hi glass"><span class="h-tag">操控</span><h3>DeltaTracking 消抖</h3><p>手柄增量位移算法，人手微颤被挡在产线之外。</p></div>
-          <div class="hi glass"><span class="h-tag">安全</span><h3>≤5ms 双键急停</h3><p>开机硬件闭锁 → 长按摇杆解锁 → A+B 急停切断动力，三级防护状态机。</p></div>
-          <div class="hi glass"><span class="h-tag">保真</span><h3>真机标定仿真</h3><p>坠落动力学标定 + 反射转子惯量——浏览器里就是同一台臂。</p></div>
-          <div class="hi glass"><span class="h-tag">链路</span><h3>虚实数据桥</h3><p>FastAPI · WebSocket 伴生桥接，操作员互斥 + 背压广播，遥测与指令毫秒级上下行。</p></div>
-          <div class="hi glass"><span class="h-tag">柔性</span><h3>双模式自动切换</h3><p>正常工况自动预执行，变形卡滞秒切人工遥操作干预。</p></div>
+          <div class="hi glass"><span class="h-tag">安全</span><h3>0.8 s 双键急停</h3><p>锁定→使能→急停三级状态机，A+B 长按 0.8 s 切断动力；力矩突变至零输出 ≤200 ms，较人工急停快 5～10 倍。</p></div>
+          <div class="hi glass"><span class="h-tag">保真</span><h3>真机标定仿真</h3><p>反射转子惯量实测回填，仿真—真机坠落时序误差 31°→2.4°；浏览器加载与真机同一 MJCF 模型。</p></div>
+          <div class="hi glass"><span class="h-tag">链路</span><h3>虚实数据桥</h3><p>FastAPI · WebSocket 伴生桥接，操作员互斥 + 背压广播；五端六链路 200 ms 通信超时保护，断连自动停机。</p></div>
+          <div class="hi glass"><span class="h-tag">自适应</span><h3>双模式自动切换</h3><p>先停·再报·后接管：力矩异常自动停机，VR 第一视角随时抢占人工处置。</p></div>
           <div class="hi glass"><span class="h-tag">轻量</span><h3>浏览器即工作台</h3><p>MuJoCo 物理引擎跑进浏览器 WASM，免安装免配置，打开网页就是完整工作台。</p></div>
         </div>
       </section>
 
-      <!-- ===== 素材位 ===== -->
+      <!-- ===== 系统实拍（视频懒加载：进视口才拉流，见 about.ts）===== -->
       <section class="sec" id="media">
         <h2 class="sec-title" data-rise>系统实拍</h2>
-        <div class="mats">
-          <div class="mat-ph" data-rise>
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M22 9l-6 4 6 4V9z"/></svg>
-            <b>真机拆解作业 · 实拍</b>
-          </div>
-          <div class="mat-ph" data-rise>
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
-            <b>VR 第一视角 · 录屏</b>
-          </div>
-          <div class="mat-ph" data-rise>
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M7 12h4M8 9v6M16 10h.01M19 13h.01"/></svg>
-            <b>遥操作中控台 · 实拍</b>
-          </div>
+        <div class="mats" data-stagger>
+          <figure class="mat-vid">
+            <video data-clip="about-arm.mp4" muted loop playsinline preload="metadata"></video>
+            <figcaption>真机拆解作业 · 实拍</figcaption>
+          </figure>
+          <figure class="mat-vid">
+            <video data-clip="about-vr-takeover.mp4" muted loop playsinline preload="metadata"></video>
+            <figcaption>VR 第一视角 · 接管实录（VR 画面 | Unity | 实景）</figcaption>
+          </figure>
+          <figure class="mat-vid wide">
+            <video data-clip="about-console-sync.mp4" muted loop playsinline preload="metadata"></video>
+            <figcaption>遥操作中控台 · 虚实同步（左实拍 / 右孪生）</figcaption>
+          </figure>
         </div>
       </section>
 
@@ -146,7 +146,7 @@
       </section>
     </main>
     <footer>
-      © 2026 报废电池拆解数字孪生集成机器人遥操作系统<br />
+      © 2026 面向退役动力电池安全拆解的数字孪生遥操作系统<br />
       基于 reBot B601-DM · PICO 4 · MuJoCo · Unity 构建
     </footer>
     <script type="module" src="/src/about.ts"></script>

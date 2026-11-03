@@ -1,5 +1,5 @@
 /**
- * 关于页（R7，2026-10-27）：Hero / 痛点 / 四环节 / 系统构成 / 亮点 / 素材位 / CTA。
+ * 关于页（R7，2026-10-27）：Hero / 痛点 / 四环节 / 系统构成 / 亮点 / 系统实拍 / CTA。
  * 设计原则：不用二级标签与冗余副标，标题 + 排版自说明。
  * 动效：GSAP + Lenis 滚动叙事；reduced-motion 时内容直接可见。
  */
@@ -54,11 +54,38 @@ if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
     scrollTrigger: { trigger: '#flow', start: 'top 68%' },
   });
 
-  // 素材占位：轻微视差（交替上下）
-  gsap.utils.toArray<HTMLElement>('.mat-ph').forEach((el, i) => {
-    gsap.to(el, {
-      y: i % 2 ? 16 : -16, ease: 'none',
-      scrollTrigger: { trigger: el, scrub: 1.2 },
-    });
+}
+
+/* ===== 系统实拍视频：data-clip → BASE_URL/videos/ 下取片，进视口才加载播放 ===== */
+
+const VID_BASE = `${import.meta.env.BASE_URL}videos/`;
+const clips = Array.from(document.querySelectorAll<HTMLVideoElement>('.mat-vid video'));
+
+if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  // 系统关动画：只加载首帧（preload="metadata"），不自动播放
+  clips.forEach((v) => (v.src = VID_BASE + v.dataset.clip));
+} else {
+  const inView = new WeakSet<HTMLVideoElement>();
+  const io = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        const v = e.target as HTMLVideoElement;
+        if (e.isIntersecting) {
+          inView.add(v);
+          if (!v.src) v.src = VID_BASE + v.dataset.clip; // 懒加载：滚到才拉流
+          void v.play().catch(() => { /* 自动播放拦截等：静默 */ });
+        } else {
+          inView.delete(v);
+          v.pause();
+        }
+      }
+    },
+    { threshold: 0.25 },
+  );
+  clips.forEach((v) => io.observe(v));
+
+  // 页面隐藏统一暂停、回来只恢复视口内的（省后台解码，与 live 页同策略）
+  document.addEventListener('visibilitychange', () => {
+    clips.forEach((v) => (document.hidden || !inView.has(v) ? v.pause() : v.play().catch(() => {})));
   });
 }

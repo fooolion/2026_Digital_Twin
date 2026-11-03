@@ -21,7 +21,7 @@ const MAPPINGS: { key: string; pad: 'L' | 'R' | '—'; to: string; desc: string 
   { key: '空格 / E', pad: 'L', to: 'Y', desc: '模式切换（自动/手动）' },
   { key: '鼠标移动', pad: 'R', to: '右摇杆', desc: '目标点微调（视口相对位移）' },
   { key: '鼠标左键 / 右键', pad: 'R', to: 'A / B', desc: '单键功能位（PICO 4 右手柄 = A/B；触屏双指同按等价）' },
-  { key: '鼠标左键 + 右键', pad: 'R', to: 'A + B 同按', desc: '双键急停（≤5ms 切断动力）' },
+  { key: '鼠标左键 + 右键', pad: 'R', to: 'A + B 同按', desc: '双键急停（长按 0.8 s 切断动力）' },
   { key: '长按「解锁」按钮 1s', pad: '—', to: '使能链路', desc: 'LOCKED → ARMED（对应长按右摇杆）' },
 ];
 
@@ -286,7 +286,7 @@ function checkEstopCombo(): void {
   if (input.rA && input.rB && lock === 'ARMED') {
     setLock('ESTOP');
     logEvent('A+B 双键急停 → E-STOP');
-    toast('双键急停已触发 · ≤5ms 切断（镜像演示）');
+    toast('双键急停已触发 · 动力切断（镜像演示）');
   }
 }
 estopBtn.addEventListener('click', () => {
